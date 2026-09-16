@@ -12,6 +12,9 @@
 <body>
   <div id="game-container"></div>
 
+  <!-- Crisp Vector HTML Nametag Overlay Container -->
+  <div id="nametags-container"></div>
+
   <!-- HUD Overlay -->
   <div id="hud-overlay">
     <!-- Top Bar: Compact Single-Row Icon HUD -->
@@ -47,6 +50,12 @@
         <div class="hud-pill">
           <span id="speed-val" class="hud-pill-val">0.0<small>km/h</small></span>
         </div>
+
+        <!-- MP Room Badge (Visible in Multiplayer) -->
+        <div id="hud-mp-pill" class="hud-pill hud-mp-pill hidden">
+          <span class="mp-live-dot"></span>
+          <span id="hud-mp-info" class="hud-pill-val">LAKE7</span>
+        </div>
       </div>
     </div>
 
@@ -77,13 +86,10 @@
     </div>
   </div>
 
-  <!-- Start & Game Over Screen Modal with Preload Progress -->
+  <!-- Modal Overlay System: Mode Select, MP Lobby, Waiting Room, & Game Over -->
   <div id="modal-screen" class="modal-overlay">
     <div class="modal-card">
-      <h1 class="modal-title">INFINITE LAKE ADVENTURE</h1>
-      <p class="modal-subtitle">Jelajahi danau tanpa batas dengan perahu kayu Low Poly!</p>
-      
-      <!-- 3D Asset Preload Progress Bar -->
+      <!-- 3D Asset Preload Progress Bar (Global) -->
       <div id="asset-loader-box" class="asset-loader-box">
         <div class="asset-loader-header">
           <span id="asset-loader-status" class="asset-loader-status">Memuat Aset 3D...</span>
@@ -94,7 +100,95 @@
         </div>
       </div>
 
-      <button id="btn-start" class="btn-primary hidden">Mulai Mengarungi Danau</button>
+      <!-- VIEW 1: MODE SELECTION (SOLO VS MULTIPLAYER) -->
+      <div id="view-mode-select" class="modal-view hidden">
+        <h1 class="modal-title">INFINITE LAKE ADVENTURE</h1>
+        <p class="modal-subtitle">Jelajahi danau tanpa batas dengan perahu kayu Low Poly!</p>
+        
+        <div class="mode-select-grid">
+          <button id="btn-mode-solo" class="btn-mode-card">
+            <span class="mode-icon">🕹️</span>
+            <div class="mode-info">
+              <span class="mode-title">Solo Adventure</span>
+              <span class="mode-desc">Petualangan solo mengarungi danau tak berujung</span>
+            </div>
+          </button>
+
+          <button id="btn-mode-multiplayer" class="btn-mode-card">
+            <span class="mode-icon">🌐</span>
+            <div class="mode-info">
+              <span class="mode-title">Multiplayer Co-op</span>
+              <span class="mode-desc">Bersama teman dalam satu perahu yang sama</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- VIEW 2: MULTIPLAYER LOBBY (CREATE / JOIN ROOM) -->
+      <div id="view-mp-lobby" class="modal-view hidden">
+        <h2 class="modal-title-sm">MULTIPLAYER LOBBY</h2>
+        <p class="modal-subtitle">Buat atau gabung ke ruangan untuk bermain bersama.</p>
+
+        <div class="input-group">
+          <label for="input-player-name" class="input-label">NAMA PEMAIN</label>
+          <input type="text" id="input-player-name" class="input-field" placeholder="Masukkan nama Anda..." maxlength="14" />
+        </div>
+
+        <div class="mp-actions-grid">
+          <!-- Create Room Action -->
+          <div class="mp-action-card">
+            <h3 class="action-card-title">Buat Ruangan Baru</h3>
+            <p class="action-card-desc">Buat room baru dan jadilah Host perahu</p>
+            <button id="btn-create-room" class="btn-primary btn-action">➕ Buat Room</button>
+          </div>
+
+          <!-- Join Room Action -->
+          <div class="mp-action-card">
+            <h3 class="action-card-title">Gabung via Kode</h3>
+            <div class="join-code-row">
+              <input type="text" id="input-room-code" class="input-field input-code" placeholder="KODE (contoh: LK89A)" maxlength="5" />
+              <button id="btn-join-room" class="btn-primary btn-action">Gabung</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="mp-lobby-error" class="mp-error-msg hidden"></div>
+
+        <button id="btn-back-to-mode" class="btn-secondary">⬅️ Kembali ke Menu</button>
+      </div>
+
+      <!-- VIEW 3: WAITING ROOM / ROOM LOBBY -->
+      <div id="view-waiting-room" class="modal-view hidden">
+        <div class="waiting-header">
+          <div class="room-code-badge">
+            <span class="code-label">KODE RUANGAN:</span>
+            <span id="room-code-val" class="code-val">-----</span>
+            <button id="btn-copy-code" class="btn-copy" title="Salin Kode">📋</button>
+          </div>
+          <span id="copy-toast" class="copy-toast hidden">Tersalin!</span>
+        </div>
+
+        <div class="waiting-section-title">DAFTAR KRU PERAHU (<span id="player-count-num">1</span>/8)</div>
+        <div id="player-list-container" class="player-list-container">
+          <!-- Dynamic Player Items -->
+        </div>
+
+        <div class="waiting-actions">
+          <button id="btn-host-start" class="btn-primary btn-pulse hidden">🚀 Mulai Petualangan</button>
+          <div id="guest-waiting-msg" class="guest-waiting-msg hidden">
+            <span class="pulse-dot"></span> Menunggu Host memulai permainan...
+          </div>
+          <button id="btn-leave-room" class="btn-secondary">🚪 Keluar Ruangan</button>
+        </div>
+      </div>
+
+      <!-- VIEW 4: GAME OVER -->
+      <div id="view-game-over" class="modal-view hidden">
+        <h1 class="modal-title">GAME OVER</h1>
+        <p id="gameover-subtitle" class="modal-subtitle">Perahu Anda hancur akibat benturan tebing.</p>
+        <button id="btn-gameover-restart" class="btn-primary">Coba Lagi</button>
+        <button id="btn-gameover-menu" class="btn-secondary">Menu Utama</button>
+      </div>
     </div>
   </div>
 

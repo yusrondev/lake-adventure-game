@@ -9,6 +9,8 @@ import { RockManager } from './entities/RockManager.js';
 import { WeatherManager } from './graphics/WeatherManager.js';
 import { ToriiGateManager } from './entities/ToriiGateManager.js';
 import { AssetLoader } from './utils/AssetLoader.js';
+import { NetworkManager } from './net/NetworkManager.js';
+import { RemotePlayer } from './entities/RemotePlayer.js';
 
 class InfiniteLakeGame {
   constructor() {
@@ -24,13 +26,49 @@ class InfiniteLakeGame {
     this.hpValEl = document.getElementById('hp-val');
     this.hpFillEl = document.getElementById('hp-bar-fill');
     this.modalScreen = document.getElementById('modal-screen');
-    this.btnStart = document.getElementById('btn-start');
 
     // 3D Asset Loading Bar Elements
     this.assetLoaderBox = document.getElementById('asset-loader-box');
     this.assetLoaderStatus = document.getElementById('asset-loader-status');
     this.assetLoaderPct = document.getElementById('asset-loader-pct');
     this.assetLoaderBar = document.getElementById('asset-loader-bar');
+
+    // Modal Views
+    this.viewModeSelect = document.getElementById('view-mode-select');
+    this.viewMpLobby = document.getElementById('view-mp-lobby');
+    this.viewWaitingRoom = document.getElementById('view-waiting-room');
+    this.viewGameOver = document.getElementById('view-game-over');
+
+    // Mode Selection Buttons
+    this.btnModeSolo = document.getElementById('btn-mode-solo');
+    this.btnModeMultiplayer = document.getElementById('btn-mode-multiplayer');
+
+    // MP Lobby Elements
+    this.inputPlayerName = document.getElementById('input-player-name');
+    this.btnCreateRoom = document.getElementById('btn-create-room');
+    this.inputRoomCode = document.getElementById('input-room-code');
+    this.btnJoinRoom = document.getElementById('btn-join-room');
+    this.btnBackToMode = document.getElementById('btn-back-to-mode');
+    this.mpLobbyError = document.getElementById('mp-lobby-error');
+
+    // Waiting Room Elements
+    this.roomCodeVal = document.getElementById('room-code-val');
+    this.btnCopyCode = document.getElementById('btn-copy-code');
+    this.copyToast = document.getElementById('copy-toast');
+    this.playerCountNum = document.getElementById('player-count-num');
+    this.playerListContainer = document.getElementById('player-list-container');
+    this.btnHostStart = document.getElementById('btn-host-start');
+    this.guestWaitingMsg = document.getElementById('guest-waiting-msg');
+    this.btnLeaveRoom = document.getElementById('btn-leave-room');
+
+    // Game Over Elements
+    this.gameoverSubtitle = document.getElementById('gameover-subtitle');
+    this.btnGameoverRestart = document.getElementById('btn-gameover-restart');
+    this.btnGameoverMenu = document.getElementById('btn-gameover-menu');
+
+    // In-game MP HUD Badge
+    this.hudMpPill = document.getElementById('hud-mp-pill');
+    this.hudMpInfo = document.getElementById('hud-mp-info');
 
     // Milestone Notification Elements
     this.milestoneBanner = document.getElementById('milestone-banner');
@@ -60,9 +98,16 @@ class InfiniteLakeGame {
       this.highscoreEl.innerHTML = `${this.highScore} <small>m</small>`;
     }
 
-    // Game state
+    // Game state & Mode
     this.gameState = 'MENU';
+    this.isMultiplayer = false;
     this.distanceTraveled = 0;
+
+    // Multiplayer Networking
+    this.networkManager = new NetworkManager();
+    this.remotePlayers = new Map(); // playerId -> RemotePlayer
+    this.netSyncTimer = 0;
+    this.envSyncTimer = 0;
 
     // Keyboard Input States
     this.input = {
@@ -81,12 +126,25 @@ class InfiniteLakeGame {
     this.initThree();
     this.initEntities();
     this.setupEvents();
+    this.setupNetworkEvents();
     this.setupJoystick();
     this.startAssetPreloading();
 
     // Start Animation Loop
     this.clock = new THREE.Clock();
     this.animate();
+  }
+
+  showView(viewId) {
+    const views = [this.viewModeSelect, this.viewMpLobby, this.viewWaitingRoom, this.viewGameOver];
+    views.forEach(v => {
+      if (v) v.classList.add('hidden');
+    });
+
+    if (viewId === 'mode-select' && this.viewModeSelect) this.viewModeSelect.classList.remove('hidden');
+    if (viewId === 'mp-lobby' && this.viewMpLobby) this.viewMpLobby.classList.remove('hidden');
+    if (viewId === 'waiting-room' && this.viewWaitingRoom) this.viewWaitingRoom.classList.remove('hidden');
+    if (viewId === 'game-over' && this.viewGameOver) this.viewGameOver.classList.remove('hidden');
   }
 
   startAssetPreloading() {
@@ -125,10 +183,10 @@ class InfiniteLakeGame {
           console.warn('[WebGL Prewarm]', e);
         }
 
-        // Hide loader box and reveal start button
+        // Hide loader box and show Mode Selection Menu
         setTimeout(() => {
           if (this.assetLoaderBox) this.assetLoaderBox.classList.add('hidden');
-          if (this.btnStart) this.btnStart.classList.remove('hidden');
+          this.showView('mode-select');
         }, 350);
       }
     );
@@ -208,12 +266,8 @@ class InfiniteLakeGame {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    if (this.btnStart) {
-      this.btnStart.addEventListener('click', () => this.startGame());
-    }
-
-    // Reliable Event Binding Helper for both Desktop Mouse & Mobile Touch Screens
-    const bindBtnEvent = (btnEl, actionFn) => {
+    // Reliable Event Binding Helper
+    const bindBtn = (btnEl, actionFn) => {
       if (!btnEl) return;
       const handler = (e) => {
         if (e) {
@@ -226,24 +280,102 @@ class InfiniteLakeGame {
       btnEl.addEventListener('click', handler);
     };
 
-    // Interactive Lantern On/Off & 360 Spotlight Controls
-    bindBtnEvent(this.btnLanternToggle, () => {
-      const newState = !this.woodenBoat.isLanternOn;
-      this.woodenBoat.setLanternOn(newState);
+    // Mode Selection Handlers
+    bindBtn(this.btnModeSolo, () => {
+      this.isMultiplayer = false;
+      if (this.hudMpPill) this.hudMpPill.classList.add('hidden');
+      this.startGame();
+    });
 
-      if (newState) {
-        this.btnLanternToggle.textContent = '🔌';
-        this.btnLanternToggle.classList.add('on');
-        if (this.lanternAimBar) this.lanternAimBar.classList.remove('hidden');
+    bindBtn(this.btnModeMultiplayer, () => {
+      this.showView('mp-lobby');
+    });
+
+    // Multiplayer Lobby Handlers
+    bindBtn(this.btnBackToMode, () => {
+      this.networkManager.leaveRoom();
+      this.showView('mode-select');
+    });
+
+    bindBtn(this.btnCreateRoom, () => {
+      const name = (this.inputPlayerName ? this.inputPlayerName.value : '').trim() || 'Captain';
+      this.setMpError('');
+      this.networkManager.createRoom(name).catch(err => {
+        this.setMpError('Gagal membuat ruangan. Pastikan server aktif.');
+      });
+    });
+
+    bindBtn(this.btnJoinRoom, () => {
+      const name = (this.inputPlayerName ? this.inputPlayerName.value : '').trim() || 'Crew';
+      const code = (this.inputRoomCode ? this.inputRoomCode.value : '').trim().toUpperCase();
+      if (!code || code.length < 4) {
+        this.setMpError('Masukkan kode ruangan yang valid.');
+        return;
+      }
+      this.setMpError('');
+      this.networkManager.joinRoom(code, name).catch(err => {
+        this.setMpError('Gagal bergabung ke ruangan.');
+      });
+    });
+
+    // Waiting Room Handlers
+    bindBtn(this.btnCopyCode, () => {
+      if (this.networkManager.roomCode) {
+        navigator.clipboard.writeText(this.networkManager.roomCode).then(() => {
+          if (this.copyToast) {
+            this.copyToast.classList.remove('hidden');
+            setTimeout(() => { if (this.copyToast) this.copyToast.classList.add('hidden'); }, 2000);
+          }
+        }).catch(() => {});
+      }
+    });
+
+    bindBtn(this.btnHostStart, () => {
+      this.networkManager.startGame();
+    });
+
+    bindBtn(this.btnLeaveRoom, () => {
+      this.networkManager.leaveRoom();
+      this.showView('mp-lobby');
+    });
+
+    // Game Over Handlers
+    bindBtn(this.btnGameoverRestart, () => {
+      if (this.isMultiplayer) {
+        if (this.networkManager.isHost) {
+          this.networkManager.startGame();
+        } else {
+          this.showView('waiting-room');
+          this.modalScreen.classList.remove('hidden');
+        }
       } else {
-        this.btnLanternToggle.textContent = '💡';
-        this.btnLanternToggle.classList.remove('on');
-        if (this.lanternAimBar) this.lanternAimBar.classList.add('hidden');
+        this.startGame();
+      }
+    });
+
+    bindBtn(this.btnGameoverMenu, () => {
+      this.networkManager.leaveRoom();
+      this.showView('mode-select');
+      this.modalScreen.classList.remove('hidden');
+    });
+
+    // Lantern Control UI Buttons
+    bindBtn(this.btnLanternToggle, () => {
+      const nextState = !this.woodenBoat.isLanternOn;
+      this.woodenBoat.setLanternOn(nextState);
+      if (this.isMultiplayer) {
+        this.networkManager.sendLanternSync(this.woodenBoat.isLanternOn, this.woodenBoat.targetSpotlightAngle);
+      }
+      if (this.lanternAimBar) {
+        if (this.woodenBoat.isLanternOn) {
+          this.lanternAimBar.classList.remove('hidden');
+        } else {
+          this.lanternAimBar.classList.add('hidden');
+        }
       }
     });
 
     const updateSpotlightAngle = (targetDeg) => {
-      // Normalize degree to range [-180, 180] for smooth and accurate orientation
       let norm = targetDeg % 360;
       if (norm > 180) norm -= 360;
       if (norm < -180) norm += 360;
@@ -252,43 +384,216 @@ class InfiniteLakeGame {
       const rad = (this.spotlightDegree * Math.PI) / 180;
       this.woodenBoat.setSpotlightAngle(rad);
 
-      // Update UI button active highlights
+      if (this.isMultiplayer) {
+        this.networkManager.sendLanternSync(this.woodenBoat.isLanternOn, rad);
+      }
+
       if (this.btnAimFront) {
-        if (Math.abs(this.spotlightDegree) < 5) {
-          this.btnAimFront.classList.add('active');
-        } else {
-          this.btnAimFront.classList.remove('active');
-        }
+        if (Math.abs(this.spotlightDegree) < 5) this.btnAimFront.classList.add('active');
+        else this.btnAimFront.classList.remove('active');
       }
       if (this.btnAimLeft) {
-        if (this.spotlightDegree <= -5) {
-          this.btnAimLeft.classList.add('active');
-        } else {
-          this.btnAimLeft.classList.remove('active');
-        }
+        if (this.spotlightDegree <= -5) this.btnAimLeft.classList.add('active');
+        else this.btnAimLeft.classList.remove('active');
       }
       if (this.btnAimRight) {
-        if (this.spotlightDegree >= 5) {
-          this.btnAimRight.classList.add('active');
-        } else {
-          this.btnAimRight.classList.remove('active');
-        }
+        if (this.spotlightDegree >= 5) this.btnAimRight.classList.add('active');
+        else this.btnAimRight.classList.remove('active');
       }
     };
 
-    bindBtnEvent(this.btnAimLeft, () => {
+    bindBtn(this.btnAimLeft, () => {
       const newDeg = Math.max(-75, this.spotlightDegree - 15);
       updateSpotlightAngle(newDeg);
     });
 
-    bindBtnEvent(this.btnAimRight, () => {
+    bindBtn(this.btnAimRight, () => {
       const newDeg = Math.min(75, this.spotlightDegree + 15);
       updateSpotlightAngle(newDeg);
     });
 
-    bindBtnEvent(this.btnAimFront, () => {
+    bindBtn(this.btnAimFront, () => {
       updateSpotlightAngle(0);
     });
+  }
+
+  setMpError(msg) {
+    if (!this.mpLobbyError) return;
+    if (msg) {
+      this.mpLobbyError.textContent = msg;
+      this.mpLobbyError.classList.remove('hidden');
+    } else {
+      this.mpLobbyError.classList.add('hidden');
+    }
+  }
+
+  setupNetworkEvents() {
+    this.networkManager.on('room_created', (data) => {
+      this.isMultiplayer = true;
+      if (this.roomCodeVal) this.roomCodeVal.textContent = data.roomCode;
+      if (this.btnHostStart) this.btnHostStart.classList.remove('hidden');
+      if (this.guestWaitingMsg) this.guestWaitingMsg.classList.add('hidden');
+      this.updatePlayerListUI(data.players || []);
+      this.showView('waiting-room');
+    });
+
+    this.networkManager.on('room_joined', (data) => {
+      this.isMultiplayer = true;
+      if (this.roomCodeVal) this.roomCodeVal.textContent = data.roomCode;
+      if (this.btnHostStart) this.btnHostStart.classList.add('hidden');
+      if (this.guestWaitingMsg) this.guestWaitingMsg.classList.remove('hidden');
+      this.updatePlayerListUI(data.players || []);
+      this.showView('waiting-room');
+    });
+
+    this.networkManager.on('player_joined', (data) => {
+      this.updatePlayerListUI(data.players || []);
+      // If game is active, spawn remote player avatar
+      if (this.gameState === 'PLAYING' && data.player && data.player.id !== this.networkManager.playerId) {
+        this.spawnRemotePlayer(data.player);
+      }
+    });
+
+    this.networkManager.on('player_left', (data) => {
+      this.updatePlayerListUI(data.players || []);
+      this.removeRemotePlayer(data.playerId);
+
+      // Check if this player became host
+      if (this.networkManager.isHost) {
+        if (this.btnHostStart) this.btnHostStart.classList.remove('hidden');
+        if (this.guestWaitingMsg) this.guestWaitingMsg.classList.add('hidden');
+      }
+    });
+
+    this.networkManager.on('game_start', (data) => {
+      // Set room world seed in RockManager so all clients generate identical obstacles
+      if (data.worldSeed && this.rockManager) {
+        this.rockManager.setWorldSeed(data.worldSeed);
+      }
+      if (data.timeOfDay !== undefined && this.dayNightCycle) {
+        this.dayNightCycle.timeOfDay = data.timeOfDay;
+      }
+
+      // Initialize remote players on the shared boat
+      this.clearAllRemotePlayers();
+      if (data.players) {
+        data.players.forEach(p => {
+          if (p.id !== this.networkManager.playerId) {
+            this.spawnRemotePlayer(p);
+          }
+        });
+      }
+
+      // Show HUD multiplayer info
+      if (this.hudMpPill && this.hudMpInfo) {
+        this.hudMpInfo.textContent = this.networkManager.roomCode;
+        this.hudMpPill.classList.remove('hidden');
+      }
+
+      this.startGame();
+    });
+
+    this.networkManager.on('player_moved', (data) => {
+      const rp = this.remotePlayers.get(data.playerId);
+      if (rp) {
+        rp.setTargetState(data.localPos, data.heading);
+      }
+    });
+
+    this.networkManager.on('boat_sync', (data) => {
+      // Non-host players interpolate boat physics snapshot from host
+      if (!this.networkManager.isHost && data.boatState) {
+        this.physics.applyRemoteBoatState(data.boatState);
+      }
+    });
+
+    this.networkManager.on('env_sync', (data) => {
+      if (data.timeOfDay !== undefined && this.dayNightCycle) {
+        this.dayNightCycle.timeOfDay = data.timeOfDay;
+      }
+    });
+
+    this.networkManager.on('lantern_sync', (data) => {
+      if (data.lanternState) {
+        this.woodenBoat.setLanternOn(data.lanternState.isLanternOn);
+        if (data.lanternState.spotlightAngle !== undefined) {
+          this.woodenBoat.setSpotlightAngle(data.lanternState.spotlightAngle);
+        }
+      }
+    });
+
+    this.networkManager.on('collision_event', (data) => {
+      if (data.damage > 0) {
+        this.triggerDamageFeedback();
+      }
+      if (data.health !== undefined) {
+        this.physics.health = data.health;
+        this.updateHpUI();
+      }
+    });
+
+    this.networkManager.on('game_over', (data) => {
+      this.gameOver(data.reason);
+    });
+
+    this.networkManager.on('error', (msg) => {
+      this.setMpError(msg);
+    });
+  }
+
+  updatePlayerListUI(players) {
+    if (!this.playerListContainer) return;
+    this.playerListContainer.innerHTML = '';
+    if (this.playerCountNum) this.playerCountNum.textContent = players.length;
+
+    players.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'player-card-item';
+
+      const left = document.createElement('div');
+      left.className = 'player-card-left';
+
+      const dot = document.createElement('span');
+      dot.className = 'player-color-dot';
+      dot.style.background = p.color || '#38bdf8';
+      dot.style.color = p.color || '#38bdf8';
+
+      const name = document.createElement('span');
+      name.className = 'player-name-text';
+      name.textContent = p.name + (p.id === this.networkManager.playerId ? ' (Anda)' : '');
+
+      left.appendChild(dot);
+      left.appendChild(name);
+      item.appendChild(left);
+
+      if (p.isHost) {
+        const hostTag = document.createElement('span');
+        hostTag.className = 'player-host-tag';
+        hostTag.textContent = '👑 Host';
+        item.appendChild(hostTag);
+      }
+
+      this.playerListContainer.appendChild(item);
+    });
+  }
+
+  spawnRemotePlayer(playerData) {
+    if (!playerData || this.remotePlayers.has(playerData.id)) return;
+    const remotePlayer = new RemotePlayer(this.woodenBoat.mesh, playerData);
+    this.remotePlayers.set(playerData.id, remotePlayer);
+  }
+
+  removeRemotePlayer(playerId) {
+    const rp = this.remotePlayers.get(playerId);
+    if (rp) {
+      rp.destroy();
+      this.remotePlayers.delete(playerId);
+    }
+  }
+
+  clearAllRemotePlayers() {
+    this.remotePlayers.forEach(rp => rp.destroy());
+    this.remotePlayers.clear();
   }
 
   setupJoystick() {
@@ -302,7 +607,6 @@ class InfiniteLakeGame {
       this.joystickActive = true;
       this.joystickOrigin = { x: clientX, y: clientY };
 
-      // Dynamically move joystick base to touch/mouse origin
       this.joystickBase.style.left = `${clientX}px`;
       this.joystickBase.style.top = `${clientY}px`;
       this.joystickBase.classList.add('active');
@@ -341,14 +645,12 @@ class InfiniteLakeGame {
       this.joystickVector = { x: 0, y: 0 };
     };
 
-    // Check if touch or click is targeting interactive UI elements
     const isTargetingUI = (target, clientY) => {
       if (clientY < 60) return true;
       if (!target) return false;
       return !!target.closest('#lantern-hud-container, .hud-top-bar, .lantern-btn, .aim-btn, .modal-card');
     };
 
-    // Global screen touch listener for dynamic joystick spawning
     window.addEventListener('touchstart', (e) => {
       if (this.gameState !== 'PLAYING') return;
       const touch = e.touches[0];
@@ -388,7 +690,6 @@ class InfiniteLakeGame {
     if (code === 'KeyA' || code === 'ArrowLeft') this.input.left = isDown;
     if (code === 'KeyD' || code === 'ArrowRight') this.input.right = isDown;
 
-    // Optional debug toggle for weather preview when pressing 'R'
     if (code === 'KeyR' && isDown) {
       if (this.weatherManager) {
         const active = this.weatherManager.toggleStormDebug();
@@ -401,7 +702,6 @@ class InfiniteLakeGame {
     this.gameState = 'PLAYING';
     this.modalScreen.classList.add('hidden');
 
-    // Auto Fullscreen Trigger on Game Start
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
       elem.requestFullscreen().catch(() => {});
@@ -461,18 +761,18 @@ class InfiniteLakeGame {
       }
     }
 
-    const titleEl = this.modalScreen.querySelector('.modal-title');
-    const subtitleEl = this.modalScreen.querySelector('.modal-subtitle');
-
-    if (titleEl) titleEl.textContent = 'GAME OVER - PERAHU HANCUR!';
-    if (subtitleEl) {
-      subtitleEl.textContent = customReason 
+    if (this.gameoverSubtitle) {
+      this.gameoverSubtitle.textContent = customReason 
         ? `${customReason} Jarak tempuh: ${finalDist} meter.`
         : `Perahu Anda hancur akibat benturan tebing. Jarak tempuh: ${finalDist} meter.`;
     }
-    if (this.btnStart) this.btnStart.textContent = 'Coba Lagi';
 
+    this.showView('game-over');
     this.modalScreen.classList.remove('hidden');
+
+    if (this.isMultiplayer && this.networkManager.isHost) {
+      this.networkManager.sendGameOver(customReason || 'Perahu hancur.', finalDist);
+    }
   }
 
   onGatePassed(gateIndex, distance) {
@@ -482,7 +782,6 @@ class InfiniteLakeGame {
     this.milestoneText.textContent = `Gerbang Torii • ${km}.000 Meter`;
 
     this.milestoneBanner.classList.remove('hidden');
-    // Force DOM reflow for smooth opacity transition
     void this.milestoneBanner.offsetWidth;
     this.milestoneBanner.classList.add('show');
 
@@ -509,13 +808,50 @@ class InfiniteLakeGame {
         this.physics.updateInput(this.input, delta);
       }
 
-      this.physics.updatePhysics(delta);
+      // Physics update (incorporating all player weight centers on deck)
+      this.physics.updatePhysics(delta, this.remotePlayers);
       this.waterSystem.update(delta);
+
+      // Update other player avatars on the shared boat deck
+      this.remotePlayers.forEach(rp => {
+        rp.update(delta, this.camera);
+      });
+
+      // Multiplayer Network Sync (25Hz)
+      if (this.isMultiplayer && this.networkManager.isConnected) {
+        this.netSyncTimer += delta;
+        if (this.netSyncTimer >= 0.04) {
+          this.netSyncTimer = 0;
+
+          // Broadcast local player movement on deck
+          this.networkManager.sendPlayerMove(
+            { x: this.physics.playerLocalPos.x, y: this.physics.playerLocalPos.y },
+            this.physics.heading
+          );
+
+          // Host broadcasts boat physics state
+          if (this.networkManager.isHost) {
+            this.networkManager.sendBoatSync(this.physics.getBoatState());
+          }
+        }
+
+        // Periodic environmental state sync (1Hz) from Host
+        if (this.networkManager.isHost) {
+          this.envSyncTimer += delta;
+          if (this.envSyncTimer >= 1.0) {
+            this.envSyncTimer = 0;
+            this.networkManager.sendEnvSync(
+              this.dayNightCycle.timeOfDay,
+              this.weatherManager ? this.weatherManager.currentWeatherStatus : 'CLEAR'
+            );
+          }
+        }
+      }
 
       const pPos = this.physics.worldPosition;
       this.chunkManager.update(pPos.z);
 
-      // Update Dynamic Weather System (Rain streaks, overcast, lightning strikes)
+      // Update Dynamic Weather System
       if (this.weatherManager) {
         this.weatherManager.update(pPos, delta);
       }
@@ -523,26 +859,24 @@ class InfiniteLakeGame {
       // Update Dynamic Day-Night Celestial Cycle
       this.dayNightCycle.update(pPos, delta);
 
-      // Update HUD Time and Weather Badges
+      // Update HUD Badges
       if (this.timeEl) {
         this.timeEl.textContent = this.dayNightCycle.getTimeFormatted();
       }
       if (this.weatherEl && this.weatherManager) {
         this.weatherEl.textContent = this.weatherManager.currentWeatherStatus;
       }
-
-      // Update Boat Compass Direction Badge
       if (this.compassEl) {
         const deg = Math.round(this.physics.heading * 180 / Math.PI);
         this.compassEl.textContent = `${deg}°`;
       }
 
-      // Check collisions with Lake Rock Obstacles (20% HP reduction & bounce feedback)
+      // Rock Collisions
       if (this.rockManager) {
         this.rockManager.update(this.physics);
       }
 
-      // Update and check Japanese Torii Gates every 2000m
+      // Torii Gate Collisions
       if (this.toriiGateManager) {
         this.toriiGateManager.update(pPos.z);
         const gateCollision = this.toriiGateManager.checkPillarCollision(pPos);
@@ -550,6 +884,9 @@ class InfiniteLakeGame {
           const hit = this.physics.handleCollision(gateCollision.bounceDir, gateCollision.penetration);
           if (hit) {
             this.triggerDamageFeedback();
+            if (this.isMultiplayer) {
+              this.networkManager.sendCollision(20, this.physics.health, gateCollision.bounceDir, gateCollision.penetration, this.physics.speed);
+            }
             if (this.physics.health <= 0) {
               this.gameOver('Perahu Anda hancur menabrak tiang gerbang Torii.');
             }
@@ -557,11 +894,15 @@ class InfiniteLakeGame {
         }
       }
 
+      // Shore Bank Collisions
       const collision = this.physics.check3DHullShoreCollision(this.chunkManager);
       if (collision.collided) {
         const hit = this.physics.handleCollision(collision.bounceDir, collision.penetration);
         if (hit) {
           this.triggerDamageFeedback();
+          if (this.isMultiplayer) {
+            this.networkManager.sendCollision(20, this.physics.health, collision.bounceDir, collision.penetration, this.physics.speed);
+          }
           if (this.physics.health <= 0) {
             this.gameOver();
           }
@@ -575,7 +916,7 @@ class InfiniteLakeGame {
       if (this.distanceEl) this.distanceEl.innerHTML = `${Math.floor(this.distanceTraveled)} <small>m</small>`;
       if (this.speedEl) this.speedEl.innerHTML = `${isReverse ? 'R ' : ''}${speedKmH} <small>km/h</small>`;
 
-      // Proximity Trigger check for player character near front-bow lantern fixture (z = -3.4m)
+      // Proximity Trigger check for player near front-bow lantern fixture (z = -3.4m)
       const playerPosOnDeck = this.physics.playerLocalPos;
       const distToLantern = Math.hypot(playerPosOnDeck.x - 0, playerPosOnDeck.y - (-3.4));
 
@@ -611,6 +952,22 @@ class InfiniteLakeGame {
     }
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  onGatePassed(gateIndex, distanceMeters) {
+    if (!this.milestoneBanner || !this.milestoneText) return;
+
+    const formattedDist = (distanceMeters / 1000).toFixed(1).replace('.0', '') + '.000m';
+    this.milestoneText.textContent = `Gerbang Torii • ${formattedDist}`;
+
+    this.milestoneBanner.classList.remove('hidden');
+
+    if (this.milestoneTimeout) clearTimeout(this.milestoneTimeout);
+    this.milestoneTimeout = setTimeout(() => {
+      if (this.milestoneBanner) {
+        this.milestoneBanner.classList.add('hidden');
+      }
+    }, 4000);
   }
 }
 

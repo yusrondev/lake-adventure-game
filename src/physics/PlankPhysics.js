@@ -77,7 +77,7 @@ export class PlankPhysics {
     }
   }
 
-  updatePhysics(delta) {
+  updatePhysics(delta, remotePlayers = null) {
     if (this.invulnerableTimer > 0) {
       this.invulnerableTimer -= delta;
     }
@@ -92,8 +92,27 @@ export class PlankPhysics {
     this.playerLocalPos.x = THREE.MathUtils.clamp(this.playerLocalPos.x, -activeMaxX, activeMaxX);
     this.playerLocalPos.y = THREE.MathUtils.clamp(this.playerLocalPos.y, this.minZ, this.maxZ);
 
-    const normX = this.playerLocalPos.x / (activeMaxX > 0 ? activeMaxX : 0.7);
-    const normZ = this.playerLocalPos.y / this.maxZ;
+    // 2. COMBINED CENTER-OF-MASS ACROSS ALL PLAYERS ON DECK (Equal physical weight for Host & Joiners)
+    let totalX = this.playerLocalPos.x;
+    let totalZ = this.playerLocalPos.y;
+    let playerCount = 1;
+
+    if (remotePlayers) {
+      const playerList = remotePlayers instanceof Map ? remotePlayers.values() : remotePlayers;
+      for (const rp of playerList) {
+        if (rp && rp.localPos) {
+          totalX += rp.localPos.x;
+          totalZ += rp.localPos.y;
+          playerCount++;
+        }
+      }
+    }
+
+    const avgLocalX = totalX / playerCount;
+    const avgLocalZ = totalZ / playerCount;
+
+    const normX = avgLocalX / (activeMaxX > 0 ? activeMaxX : 0.7);
+    const normZ = avgLocalZ / this.maxZ;
 
     // 2. SUBTLE HYDRODYNAMIC STEERING & REALISTIC WHOLE-HULL WEIGHT LISTING
     let targetTurnRate = 0;
@@ -268,6 +287,34 @@ export class PlankPhysics {
     this.roll = THREE.MathUtils.lerp(this.roll, -bounceDirection * 0.22, 0.3);
 
     return didDamage;
+  }
+
+  getBoatState() {
+    return {
+      x: this.worldPosition.x,
+      y: this.worldPosition.y,
+      z: this.worldPosition.z,
+      speed: this.speed,
+      heading: this.heading,
+      turnSpeed: this.turnSpeed,
+      roll: this.roll,
+      pitch: this.pitch,
+      health: this.health
+    };
+  }
+
+  applyRemoteBoatState(data, delta = 0.016) {
+    if (!data) return;
+    const lerpRate = Math.min(1.0, 15.0 * delta);
+    if (data.x !== undefined) this.worldPosition.x = THREE.MathUtils.lerp(this.worldPosition.x, data.x, lerpRate);
+    if (data.y !== undefined) this.worldPosition.y = THREE.MathUtils.lerp(this.worldPosition.y, data.y, lerpRate);
+    if (data.z !== undefined) this.worldPosition.z = THREE.MathUtils.lerp(this.worldPosition.z, data.z, lerpRate);
+    if (data.speed !== undefined) this.speed = THREE.MathUtils.lerp(this.speed, data.speed, lerpRate);
+    if (data.heading !== undefined) this.heading = THREE.MathUtils.lerp(this.heading, data.heading, lerpRate);
+    if (data.turnSpeed !== undefined) this.turnSpeed = THREE.MathUtils.lerp(this.turnSpeed, data.turnSpeed, lerpRate);
+    if (data.roll !== undefined) this.roll = THREE.MathUtils.lerp(this.roll, data.roll, lerpRate);
+    if (data.pitch !== undefined) this.pitch = THREE.MathUtils.lerp(this.pitch, data.pitch, lerpRate);
+    if (data.health !== undefined) this.health = data.health;
   }
 
   getStatusText() {

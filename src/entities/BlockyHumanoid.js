@@ -24,6 +24,10 @@ export class BlockyHumanoid {
     this.prevLocalPos = new THREE.Vector2(0, 0);
   }
 
+  get shirtMat() {
+    return this.materials.shirt;
+  }
+
   buildBodyParts() {
     // 1. Pelvis / Hips Root (Positioned so soles of feet rest perfectly at y = 0.0)
     this.hips = new THREE.Group();
@@ -178,6 +182,10 @@ export class BlockyHumanoid {
         node.receiveShadow = true;
       }
     });
+  }
+
+  update(delta = 0.016, isMoving = false, currentLocalPos = { x: 0, y: 0 }, targetLocalPos = { x: 0, y: 0 }) {
+    this.updateAnimation(isMoving ? 1.0 : 0.0, currentLocalPos, targetLocalPos, delta);
   }
 
   updateAnimation(speed, currentLocalPos, targetLocalPos, delta) {

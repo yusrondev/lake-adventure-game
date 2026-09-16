@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { SeededRandom } from '../net/SeededRandom.js';
 
 export class RockManager {
   constructor(scene, game, preloadedModel = null) {
@@ -10,6 +11,7 @@ export class RockManager {
     this.rockModel = null;
     this.baseExtents = new THREE.Vector3(2.5, 2.5, 2.5);
     this.baseCenter = new THREE.Vector3(0, 0, 0);
+    this.worldSeed = 123456;
 
     // Active rocks map keyed by segment index -> array of rock objects
     this.activeSegmentRocks = new Map();
@@ -19,6 +21,10 @@ export class RockManager {
     } else {
       this.preloadAsset();
     }
+  }
+
+  setWorldSeed(seed) {
+    this.worldSeed = seed;
   }
 
   initModel(modelScene) {
@@ -50,31 +56,7 @@ export class RockManager {
     loader.load(
       '/src/env/stylized_low-poly_stone.glb',
       (gltf) => {
-        this.rockModel = gltf.scene;
-        
-        this.rockModel.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-              child.material.flatShading = true;
-              if (child.material.roughness !== undefined) {
-                child.material.roughness = 0.65;
-                child.material.metalness = 0.15;
-              }
-              child.material.needsUpdate = true;
-            }
-          }
-        });
-
-        // Compute local 3D bounding box of base GLTF rock geometry
-        const box = new THREE.Box3().setFromObject(this.rockModel);
-        box.getSize(this.baseExtents);
-        box.getCenter(this.baseCenter);
-
-        if (this.baseExtents.x === 0) this.baseExtents.set(2.5, 2.5, 2.5);
-
-        this.isLoaded = true;
+        this.initModel(gltf.scene);
       },
       undefined,
       (err) => {
@@ -90,13 +72,16 @@ export class RockManager {
     // Don't spawn rocks in initial starting area (segments 0 and 1) so player starts safely
     if (segmentIndex <= 1) return;
 
+    // Deterministic random generator for this world seed and segment
+    const rng = SeededRandom.forSegment(this.worldSeed, segmentIndex);
+
     // 60% chance of 1 rock per 80m segment to guarantee clear open lanes and ample space
-    if (Math.random() > 0.60) return;
+    if (rng.random() > 0.60) return;
 
     const segmentRocks = [];
 
     // Position Z within segment with margin
-    const offsetZ = (Math.random() - 0.5) * (segmentLength - 30);
+    const offsetZ = (rng.random() - 0.5) * (segmentLength - 30);
     const rockZ = zCenter + offsetZ;
 
     // Do not spawn rocks directly in the gateway zone of Japanese Torii Gates (every 2000m)
@@ -105,17 +90,17 @@ export class RockManager {
 
     // Distribute across left, center-left, center-right, and right lanes
     const laneChoices = [-10.5, -4.5, 4.5, 10.5];
-    const chosenLane = laneChoices[Math.floor(Math.random() * laneChoices.length)];
-    const rockX = chosenLane + (Math.random() * 2.0 - 1.0);
+    const chosenLane = rng.choice(laneChoices);
+    const rockX = chosenLane + (rng.random() * 2.0 - 1.0);
 
     const rockMesh = this.createRockInstance();
     if (!rockMesh) return;
 
     // Highly varied non-uniform sizes (Scale range 1.4x to 3.8x)
-    const scaleBase = 1.4 + Math.random() * 2.4;
-    const scaleX = scaleBase * (0.85 + Math.random() * 0.35);
-    const scaleY = scaleBase * (0.9 + Math.random() * 0.4);
-    const scaleZ = scaleBase * (0.85 + Math.random() * 0.35);
+    const scaleBase = 1.4 + rng.random() * 2.4;
+    const scaleX = scaleBase * (0.85 + rng.random() * 0.35);
+    const scaleY = scaleBase * (0.9 + rng.random() * 0.4);
+    const scaleZ = scaleBase * (0.85 + rng.random() * 0.35);
 
     rockMesh.scale.set(scaleX, scaleY, scaleZ);
 
@@ -125,9 +110,9 @@ export class RockManager {
 
     // Unique random 3D rotations for organic shape variation
     rockMesh.rotation.set(
-      (Math.random() - 0.5) * 0.4,
-      Math.random() * Math.PI * 2,
-      (Math.random() - 0.5) * 0.4
+      (rng.random() - 0.5) * 0.4,
+      rng.random() * Math.PI * 2,
+      (rng.random() - 0.5) * 0.4
     );
 
     this.scene.add(rockMesh);
