@@ -8,8 +8,8 @@ export class DayNightCycle {
     this.waterMaterial = waterMaterial;
 
     // Time state (0.0 to 24.0 hours)
-    // Start at 17.5 (Sore / Senja golden hour sunset)
-    this.timeOfDay = 17.5; 
+    // Start at 5.5 (Golden Dawn / Sunrise)
+    this.timeOfDay = 5.5; 
     this.timeSpeed = 0.08; // Continuous dynamic cycle (~5 minutes per full 24h day/night)
     this.elapsedTime = 0;
 

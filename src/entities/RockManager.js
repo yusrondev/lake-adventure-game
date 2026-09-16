@@ -124,6 +124,10 @@ export class RockManager {
     const nearestGateZ = Math.round(rockZ / 2000) * 2000;
     if (Math.abs(rockZ - nearestGateZ) < 150) return;
 
+    // Do not spawn rocks anywhere near Medieval Sword Rain zones (every 3000m)
+    const nearestSwordZ = Math.round(rockZ / 3000) * 3000;
+    if (Math.abs(rockZ - nearestSwordZ) < 150) return;
+
     // Distribute across left, center-left, center-right, and right lanes
     const laneChoices = [-10.5, -4.5, 4.5, 10.5];
     const chosenLane = rng.choice(laneChoices);

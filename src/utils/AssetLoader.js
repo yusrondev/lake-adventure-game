@@ -12,7 +12,8 @@ export class AssetLoader {
       { id: 'toriiGate', path: '/models/japanese_tori_gate.glb' },
       { id: 'pineTree', path: '/models/pine_tree.glb' },
       { id: 'woodenBoat', path: '/models/wooden_boat.glb' },
-      { id: 'bambooRaft', path: '/models/bamboo_raft.glb' }
+      { id: 'bambooRaft', path: '/models/bamboo_raft.glb' },
+      { id: 'medievalSword', path: '/models/medieval_sword.glb' }
     ];
 
     this.onProgressCallback = null;

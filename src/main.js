@@ -8,6 +8,7 @@ import { DayNightCycle } from './graphics/DayNightCycle.js';
 import { RockManager } from './entities/RockManager.js';
 import { WeatherManager } from './graphics/WeatherManager.js';
 import { ToriiGateManager } from './entities/ToriiGateManager.js';
+import { SwordRainManager } from './entities/SwordRainManager.js';
 import { AssetLoader } from './utils/AssetLoader.js';
 import { NetworkManager } from './net/NetworkManager.js';
 import { RemotePlayer } from './entities/RemotePlayer.js';
@@ -175,6 +176,9 @@ class InfiniteLakeGame {
         if (this.toriiGateManager && assets.has('toriiGate')) {
           this.toriiGateManager.initModel(assets.get('toriiGate'));
         }
+        if (this.swordRainManager && assets.has('medievalSword')) {
+          this.swordRainManager.initModel(assets.get('medievalSword'));
+        }
 
         // Pre-warm GPU WebGL Shaders and Texture Buffers (Zero runtime hitching)
         try {
@@ -258,6 +262,9 @@ class InfiniteLakeGame {
 
     // Japanese Torii Gate Manager (Monumental Torii Gates spanning the lake every 2000m)
     this.toriiGateManager = new ToriiGateManager(this.scene, this);
+
+    // Medieval Sword Rain Manager (Falling giant swords at every 3000m milestone)
+    this.swordRainManager = new SwordRainManager(this.scene, this);
   }
 
   setupEvents() {
@@ -746,6 +753,7 @@ class InfiniteLakeGame {
     this.physics.turnSpeed = 0;
     this.physics.health = 100;
     this.distanceTraveled = 0;
+    if (this.swordRainManager) this.swordRainManager.reset();
     this.updateHpUI();
   }
 
@@ -916,6 +924,24 @@ class InfiniteLakeGame {
             }
             if (this.physics.health <= 0) {
               this.gameOver('Perahu Anda hancur menabrak tiang gerbang Torii.');
+            }
+          }
+        }
+      }
+
+      // Medieval Sword Rain Collisions & Animation (3000m Milestones)
+      if (this.swordRainManager) {
+        this.swordRainManager.update(pPos.z, delta);
+        const swordCollision = this.swordRainManager.checkSwordCollision(pPos);
+        if (swordCollision.collided) {
+          const hit = this.physics.handleCollision(swordCollision.bounceDir, swordCollision.penetration);
+          if (hit) {
+            this.triggerDamageFeedback();
+            if (this.isMultiplayer) {
+              this.networkManager.sendCollision(2, this.physics.health, swordCollision.bounceDir, swordCollision.penetration, this.physics.speed);
+            }
+            if (this.physics.health <= 0) {
+              this.gameOver('Perahu Anda hancur menabrak pedang raksasa.');
             }
           }
         }
