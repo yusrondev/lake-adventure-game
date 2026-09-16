@@ -24,7 +24,33 @@ export class RockManager {
   }
 
   setWorldSeed(seed) {
+    if (this.worldSeed === seed && this.activeSegmentRocks.size > 0) return;
     this.worldSeed = seed;
+
+    // Clear all existing rock meshes to guarantee seed synchronization across all clients
+    this.clearAllRocks();
+
+    // Re-generate rocks for all active segments using the new authoritative world seed
+    if (this.isLoaded && this.game && this.game.chunkManager && this.game.chunkManager.activeSegments) {
+      const segmentLength = this.game.chunkManager.segmentLength;
+      this.game.chunkManager.activeSegments.forEach((segment, idx) => {
+        this.onSegmentCreated(idx, segment.zOffset, segmentLength);
+      });
+    }
+  }
+
+  clearAllRocks() {
+    for (const [idx, rocks] of this.activeSegmentRocks.entries()) {
+      rocks.forEach((r) => {
+        if (r.mesh) {
+          this.scene.remove(r.mesh);
+          r.mesh.traverse((child) => {
+            if (child.geometry) child.geometry.dispose();
+          });
+        }
+      });
+    }
+    this.activeSegmentRocks.clear();
   }
 
   initModel(modelScene) {
@@ -49,6 +75,16 @@ export class RockManager {
     box.getCenter(this.baseCenter);
     if (this.baseExtents.x === 0) this.baseExtents.set(2.5, 2.5, 2.5);
     this.isLoaded = true;
+
+    // Trigger rock generation for any active segments once GLTF asset load completes
+    if (this.game && this.game.chunkManager && this.game.chunkManager.activeSegments) {
+      const segmentLength = this.game.chunkManager.segmentLength;
+      this.game.chunkManager.activeSegments.forEach((segment, idx) => {
+        if (!this.activeSegmentRocks.has(idx)) {
+          this.onSegmentCreated(idx, segment.zOffset, segmentLength);
+        }
+      });
+    }
   }
 
   preloadAsset() {
@@ -243,9 +279,9 @@ export class RockManager {
           physics.speed = Math.max(0, physics.speed * 0.15);
           physics.turnSpeed = normX * 1.5;
 
-          // 3. DAMAGE & FEEDBACK (Only trigger HP reduction when incoming speed >= 20 km/h and not invulnerable)
+          // 3. DAMAGE & FEEDBACK (Only trigger HP reduction when incoming speed >= 40 km/h and not invulnerable)
           if (physics.invulnerableTimer <= 0) {
-            if (incomingSpeedKmH >= 20.0) {
+            if (incomingSpeedKmH >= 40.0) {
               physics.health = Math.max(0, physics.health - 20);
               physics.invulnerableTimer = 0.8;
 
@@ -256,7 +292,7 @@ export class RockManager {
                 }
               }
             } else {
-              // Gentle scrape/bump below 20 km/h: physical bounce only, no HP damage
+              // Gentle scrape/bump below 40 km/h: physical bounce only, no HP damage
               physics.invulnerableTimer = 0.35;
             }
           }

@@ -53,7 +53,19 @@ export class TerrainSegment {
       flatShading: true
     });
 
-    // 1. Water Plane (Smooth 32x32 resolution)
+    // 1. Solid Underwater Lakebed Floor (Prevents any transparent void hole artifacts)
+    const lakebedGeo = new THREE.PlaneGeometry(this.channelWidth + 36, this.length, 8, 8);
+    const lakebedMat = new THREE.MeshStandardMaterial({
+      color: 0x081320,
+      roughness: 0.95,
+      flatShading: true
+    });
+    const lakebedMesh = new THREE.Mesh(lakebedGeo, lakebedMat);
+    lakebedMesh.rotation.x = -Math.PI / 2;
+    lakebedMesh.position.y = -1.8;
+    this.group.add(lakebedMesh);
+
+    // 1b. Opaque Water Plane Surface (Smooth 32x32 resolution)
     const waterGeo = new THREE.PlaneGeometry(this.channelWidth + 8, this.length, 32, 32);
     const waterMesh = new THREE.Mesh(waterGeo, this.waterMaterial);
     waterMesh.rotation.x = -Math.PI / 2;
@@ -61,35 +73,73 @@ export class TerrainSegment {
     waterMesh.receiveShadow = true;
     this.group.add(waterMesh);
 
-    // 2. Stylized Low-Poly Mountainous Cliffs (Left & Right Banks)
-    const cliffBouldersCount = 14;
+    // 2. Stylized Low-Poly Mountainous Cliffs (Left & Right Banks with High Random Variation)
+    const cliffBouldersCount = 12;
 
     for (let i = 0; i < cliffBouldersCount; i++) {
-      const zPos = -this.length / 2 + (i / (cliffBouldersCount - 1)) * this.length;
+      const zPos = -this.length / 2 + (i / (cliffBouldersCount - 1)) * this.length + (Math.random() - 0.5) * 4;
 
-      // Left Bank Low-Poly Mountain Boulders
-      const leftRadius = 6.0 + Math.random() * 4.0;
-      const leftCliffGeo = new THREE.IcosahedronGeometry(leftRadius, 1);
+      // --- LEFT BANK ---
+      const isToweringLeft = Math.random() < 0.35; // 35% chance of giant towering peak
+      const baseRadiusLeft = isToweringLeft ? (11.0 + Math.random() * 8.0) : (5.0 + Math.random() * 4.5);
+      const leftCliffGeo = new THREE.IcosahedronGeometry(baseRadiusLeft, 1);
       const leftCliff = new THREE.Mesh(leftCliffGeo, (i % 2 === 0 ? lowPolyGrassMat : lowPolyRockMat));
-      
-      const leftX = -(this.channelWidth / 2 + 8 + Math.random() * 4);
-      leftCliff.position.set(leftX, 2.5 + Math.random() * 2.0, zPos);
-      leftCliff.rotation.set(Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5);
+
+      const scaleYLeft = isToweringLeft ? (1.8 + Math.random() * 1.6) : (0.85 + Math.random() * 0.7);
+      const scaleXZLeft = 0.85 + Math.random() * 0.4;
+      leftCliff.scale.set(scaleXZLeft, scaleYLeft, scaleXZLeft);
+
+      // Math fix: Ensure rightmost edge of cliff sphere stays strictly outside water channel (x <= -21.0m)
+      const effRadLeft = baseRadiusLeft * scaleXZLeft;
+      const leftX = -(this.channelWidth / 2 + effRadLeft + 1.2 + Math.random() * 3.0);
+      const posYLeft = isToweringLeft ? (baseRadiusLeft * scaleYLeft * 0.40) : (2.0 + Math.random() * 2.5);
+      leftCliff.position.set(leftX, posYLeft, zPos);
+      leftCliff.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.4);
       leftCliff.castShadow = true;
       leftCliff.receiveShadow = true;
       this.group.add(leftCliff);
 
-      // Right Bank Low-Poly Mountain Boulders
-      const rightRadius = 6.0 + Math.random() * 4.0;
-      const rightCliffGeo = new THREE.IcosahedronGeometry(rightRadius, 1);
+      // --- RIGHT BANK ---
+      const isToweringRight = Math.random() < 0.35; // 35% chance of giant towering peak
+      const baseRadiusRight = isToweringRight ? (11.0 + Math.random() * 8.0) : (5.0 + Math.random() * 4.5);
+      const rightCliffGeo = new THREE.IcosahedronGeometry(baseRadiusRight, 1);
       const rightCliff = new THREE.Mesh(rightCliffGeo, (i % 2 === 1 ? lowPolyGrassMat : lowPolyEarthMat));
 
-      const rightX = (this.channelWidth / 2 + 8 + Math.random() * 4);
-      rightCliff.position.set(rightX, 2.5 + Math.random() * 2.0, zPos);
-      rightCliff.rotation.set(Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5);
+      const scaleYRight = isToweringRight ? (1.8 + Math.random() * 1.6) : (0.85 + Math.random() * 0.7);
+      const scaleXZRight = 0.85 + Math.random() * 0.4;
+      rightCliff.scale.set(scaleXZRight, scaleYRight, scaleXZRight);
+
+      // Math fix: Ensure leftmost edge of cliff sphere stays strictly outside water channel (x >= +21.0m)
+      const effRadRight = baseRadiusRight * scaleXZRight;
+      const rightX = (this.channelWidth / 2 + effRadRight + 1.2 + Math.random() * 3.0);
+      const posYRight = isToweringRight ? (baseRadiusRight * scaleYRight * 0.40) : (2.0 + Math.random() * 2.5);
+      rightCliff.position.set(rightX, posYRight, zPos);
+      rightCliff.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.4);
       rightCliff.castShadow = true;
       rightCliff.receiveShadow = true;
       this.group.add(rightCliff);
+    }
+
+    // 2b. Layered Background Giant Mountain Silhouettes (Far Out Peaks)
+    const bgPeakCount = 4;
+    for (let i = 0; i < bgPeakCount; i++) {
+      const zPos = -this.length / 2 + (i / (bgPeakCount - 1)) * this.length + (Math.random() - 0.5) * 12;
+
+      // Far Background Left Peak
+      const bgRadL = 15.0 + Math.random() * 12.0;
+      const bgPeakL = new THREE.Mesh(new THREE.IcosahedronGeometry(bgRadL, 1), lowPolyRockMat);
+      bgPeakL.scale.set(1.2, 1.8 + Math.random() * 1.6, 1.2);
+      bgPeakL.position.set(-(this.channelWidth / 2 + 28 + Math.random() * 16), bgRadL * 0.9, zPos);
+      bgPeakL.rotation.set(0.2, Math.random() * Math.PI, 0.2);
+      this.group.add(bgPeakL);
+
+      // Far Background Right Peak
+      const bgRadR = 15.0 + Math.random() * 12.0;
+      const bgPeakR = new THREE.Mesh(new THREE.IcosahedronGeometry(bgRadR, 1), lowPolyRockMat);
+      bgPeakR.scale.set(1.2, 1.8 + Math.random() * 1.6, 1.2);
+      bgPeakR.position.set((this.channelWidth / 2 + 28 + Math.random() * 16), bgRadR * 0.9, zPos);
+      bgPeakR.rotation.set(0.2, Math.random() * Math.PI, 0.2);
+      this.group.add(bgPeakR);
     }
 
     // 3. Low-Poly Shoreline Rocks
@@ -149,7 +199,10 @@ export class TerrainSegment {
       const scaleVar = 0.8 + Math.random() * 0.45;
       treeGroup.scale.set(scaleVar, scaleVar, scaleVar);
       treeGroup.rotation.y = Math.random() * Math.PI * 2;
-      treeGroup.position.set(xSide, 5.5, zPos);
+      
+      const distFromBank = Math.abs(xSide) - (this.channelWidth / 2);
+      const treeY = 1.2 + distFromBank * 0.45 + Math.random() * 1.5;
+      treeGroup.position.set(xSide, treeY, zPos);
 
       this.group.add(treeGroup);
     }

@@ -123,7 +123,7 @@ export class RemotePlayer {
     // 3. Ultra-Crisp Screen-Space Projected HTML Nametag
     if (this.nametagElem && camera) {
       this.projVec.setFromMatrixPosition(this.group.matrixWorld);
-      this.projVec.y += 1.85; // Head level height above deck
+      this.projVec.y += 2.25; // Higher head level height above deck so it never blocks forward view
 
       this.projVec.project(camera);
 

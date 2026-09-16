@@ -81,6 +81,8 @@ class InfiniteLakeGame {
     this.joystickActive = false;
     this.joystickVector = { x: 0, y: 0 };
 
+
+
     // Lantern UI Elements & 360 Spotlight Aim State
     this.btnLanternToggle = document.getElementById('btn-lantern-toggle');
     this.lanternAimBar = document.getElementById('lantern-aim-bar');
@@ -430,6 +432,9 @@ class InfiniteLakeGame {
   setupNetworkEvents() {
     this.networkManager.on('room_created', (data) => {
       this.isMultiplayer = true;
+      if (data.worldSeed && this.rockManager) {
+        this.rockManager.setWorldSeed(data.worldSeed);
+      }
       if (this.roomCodeVal) this.roomCodeVal.textContent = data.roomCode;
       if (this.btnHostStart) this.btnHostStart.classList.remove('hidden');
       if (this.guestWaitingMsg) this.guestWaitingMsg.classList.add('hidden');
@@ -439,6 +444,9 @@ class InfiniteLakeGame {
 
     this.networkManager.on('room_joined', (data) => {
       this.isMultiplayer = true;
+      if (data.worldSeed && this.rockManager) {
+        this.rockManager.setWorldSeed(data.worldSeed);
+      }
       if (this.roomCodeVal) this.roomCodeVal.textContent = data.roomCode;
       if (this.btnHostStart) this.btnHostStart.classList.add('hidden');
       if (this.guestWaitingMsg) this.guestWaitingMsg.classList.remove('hidden');
@@ -682,6 +690,8 @@ class InfiniteLakeGame {
 
     window.addEventListener('mouseup', () => handlePointerEnd());
   }
+
+
 
   handleKey(e, isDown) {
     const code = e.code;

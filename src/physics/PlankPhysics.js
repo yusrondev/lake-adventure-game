@@ -28,8 +28,8 @@ export class PlankPhysics {
 
     this.heading = 0;            
     this.turnSpeed = 0;          
-    this.maxTurnSpeed = 0.45;    
-    this.maxHeadingAngle = 0.22; // Subtle 12.6 degree max turn angle for realism
+    this.maxTurnSpeed = 0.55;    
+    this.maxHeadingAngle = 0.61; // Exact 35.0 degree max steering angle
 
     this.roll = 0;               
     this.pitch = 0;              
@@ -114,21 +114,24 @@ export class PlankPhysics {
     const normX = avgLocalX / (activeMaxX > 0 ? activeMaxX : 0.7);
     const normZ = avgLocalZ / this.maxZ;
 
-    // 2. SUBTLE HYDRODYNAMIC STEERING & REALISTIC WHOLE-HULL WEIGHT LISTING
+    // 2. DYNAMIC HYDRODYNAMIC STEERING & SAFE ROLL TILT (Wide 50° Cap)
     let targetTurnRate = 0;
-    // Entire boat hull rolls/heels realistically: shifting weight right sinks right side down, shifting left sinks left down
-    const targetRoll = -normX * 0.22; 
+    // Capped realistic hull roll (max ~11.5° tilt) to prevent boat capsizing
+    const targetRoll = THREE.MathUtils.clamp(-normX * 0.20, -0.20, 0.20); 
 
-    if (Math.abs(normX) > 0.25) {
-      const activeX = (normX - Math.sign(normX) * 0.25) / 0.75;
+    if (Math.abs(normX) > 0.22) {
+      const activeX = (normX - Math.sign(normX) * 0.22) / 0.78;
       targetTurnRate = activeX * this.maxTurnSpeed;
     } else {
-      targetTurnRate = -this.heading * 1.8;
+      // Neutral center position: gently auto-straighten heading back towards 0°
+      targetTurnRate = -this.heading * 0.8;
     }
 
     const steerDamp = 1.0 - Math.exp(-6.0 * delta);
     this.turnSpeed += (targetTurnRate - this.turnSpeed) * steerDamp;
     this.heading += this.turnSpeed * delta;
+    
+    // Smoothly clamp heading within generous ~50.4° max wide angle
     this.heading = THREE.MathUtils.clamp(this.heading, -this.maxHeadingAngle, this.maxHeadingAngle);
 
     // 3. BASE CRUISING SPEED, ACCELERATION & REVERSE DYNAMICS (With Collision Impact Stun Penalty)
@@ -149,6 +152,7 @@ export class PlankPhysics {
 
     if (normZ > 0.15) {
       // Standing on back of deck (Holding Backward / S key / Joystick Down)
+      const factor = (normZ - 0.15) / 0.85;
       if (this.speed > 0) {
         // Step 1: Brake forward speed down to 0
         this.speed -= this.brakingRate * factor * delta;
@@ -159,13 +163,14 @@ export class PlankPhysics {
       }
     } else if (normZ < -0.15) {
       // Standing on front of deck (Holding Forward / W key / Joystick Up)
+      const factor = (-normZ - 0.15) / 0.85;
       if (this.speed < 0) {
         // Step 1: Brake reverse speed back to 0
         this.speed += this.brakingRate * 1.5 * factor * delta;
         if (this.speed > 0) this.speed = 0;
       } else {
-        // Step 2: Accelerate forward
-        this.speed += (activeMaxSpeed - this.speed) * factor * delta * 2.0;
+        // Step 2: Smooth actual physical acceleration (gradual speed ramp-up over 2.5s to top speed)
+        this.speed += activeAcceleration * 0.45 * factor * delta;
       }
     } else {
       // Neutral deck position: return reverse speed to 0, or cruising speed if moving forward
@@ -173,7 +178,7 @@ export class PlankPhysics {
         this.speed += 6.0 * delta;
         if (this.speed > 0) this.speed = 0;
       } else {
-        this.speed += (activeCruisingSpeed - this.speed) * delta * 1.5;
+        this.speed += (activeCruisingSpeed - this.speed) * delta * 1.2;
       }
     }
 
@@ -256,12 +261,12 @@ export class PlankPhysics {
     let didDamage = false;
 
     if (isInitialHit) {
-      if (speedKmH >= 20.0) {
+      if (speedKmH >= 40.0) {
         this.health = Math.max(0, this.health - 20);
         this.invulnerableTimer = 0.7;
         didDamage = true;
       } else {
-        // Safe bump/graze below 20 km/h -> no damage taken
+        // Safe bump/graze below 40 km/h -> no damage taken
         this.invulnerableTimer = 0.35;
       }
     }

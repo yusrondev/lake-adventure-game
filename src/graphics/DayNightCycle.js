@@ -8,8 +8,8 @@ export class DayNightCycle {
     this.waterMaterial = waterMaterial;
 
     // Time state (0.0 to 24.0 hours)
-    // Start at 15.2 (Sore) so player quickly experiences Senja sunset transition into night and then morning
-    this.timeOfDay = 15.2; 
+    // Start at 17.5 (Sore / Senja golden hour sunset)
+    this.timeOfDay = 17.5; 
     this.timeSpeed = 0.08; // Continuous dynamic cycle (~5 minutes per full 24h day/night)
     this.elapsedTime = 0;
 
@@ -289,47 +289,7 @@ export class DayNightCycle {
   initLowPolyClouds() {
     this.cloudGroup = new THREE.Group();
     this.clouds = [];
-
-    this.cloudMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.95,
-      flatShading: true,
-      transparent: true,
-      opacity: 0.35,
-      depthWrite: false
-    });
-
-    const cloudCount = 28;
-    const puffGeo = new THREE.DodecahedronGeometry(1.0, 1);
-
-    for (let i = 0; i < cloudCount; i++) {
-      const cloud = new THREE.Group();
-      const puffCount = 5 + Math.floor(Math.random() * 4);
-
-      for (let p = 0; p < puffCount; p++) {
-        const mesh = new THREE.Mesh(puffGeo, this.cloudMat);
-        const radius = 2.4 + Math.random() * 3.5;
-        mesh.scale.set(radius, radius * (0.6 + Math.random() * 0.4), radius * 1.2);
-        mesh.position.set(
-          (p - puffCount / 2) * 2.8 + (Math.random() - 0.5) * 1.5,
-          (Math.random() - 0.5) * 1.2,
-          (Math.random() - 0.5) * 2.5
-        );
-        mesh.castShadow = true;
-        cloud.add(mesh);
-      }
-
-      const initialX = (Math.random() - 0.5) * 360;
-      const initialY = 58 + Math.random() * 32;
-      const initialZ = -220 + Math.random() * 260;
-
-      cloud.position.set(initialX, initialY, initialZ);
-      cloud.userData = { speed: 1.2 + Math.random() * 2.2, relZ: initialZ };
-      this.cloudGroup.add(cloud);
-      this.clouds.push(cloud);
-    }
-
-    this.scene.add(this.cloudGroup);
+    // All clouds completely removed as requested
   }
 
   update(playerPos, delta) {

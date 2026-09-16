@@ -51,7 +51,7 @@ export class RoomManager {
       players: new Map([[playerId, hostPlayer]]),
       gameState: 'LOBBY',
       worldSeed: Math.floor(Math.random() * 1000000) + 1,
-      timeOfDay: 15.2,
+      timeOfDay: 17.5,
       weatherState: 'CLEAR',
       boatState: {
         x: 0, y: 0, z: 0,
@@ -82,7 +82,8 @@ export class RoomManager {
         color: playerColor,
         isHost: true
       },
-      players: this.getPlayerList(room)
+      players: this.getPlayerList(room),
+      worldSeed: room.worldSeed
     });
 
     console.log(`[RoomManager] Room created: ${roomCode} by ${hostPlayer.name} (${playerId})`);

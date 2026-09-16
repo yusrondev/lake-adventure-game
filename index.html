@@ -15,6 +15,17 @@
   <!-- Crisp Vector HTML Nametag Overlay Container -->
   <div id="nametags-container"></div>
 
+  <!-- Floating Lantern Action & 360 Degree Aim Controls (Top-Level Fixed Right Element) -->
+  <div id="lantern-hud-container" class="lantern-hud-container">
+    <button id="btn-lantern-toggle" class="lantern-btn hidden">💡</button>
+    
+    <div id="lantern-aim-bar" class="lantern-aim-bar hidden">
+      <button id="btn-aim-left" class="aim-btn">↶</button>
+      <button id="btn-aim-front" class="aim-btn active">🎯</button>
+      <button id="btn-aim-right" class="aim-btn">↷</button>
+    </div>
+  </div>
+
   <!-- HUD Overlay -->
   <div id="hud-overlay">
     <!-- Top Bar: Compact Single-Row Icon HUD -->
@@ -51,22 +62,13 @@
           <span id="speed-val" class="hud-pill-val">0.0<small>km/h</small></span>
         </div>
 
+
+
         <!-- MP Room Badge (Visible in Multiplayer) -->
         <div id="hud-mp-pill" class="hud-pill hud-mp-pill hidden">
           <span class="mp-live-dot"></span>
           <span id="hud-mp-info" class="hud-pill-val">LAKE7</span>
         </div>
-      </div>
-    </div>
-
-    <!-- Floating Lantern Action & 360 Degree Aim Controls -->
-    <div id="lantern-hud-container" class="lantern-hud-container">
-      <button id="btn-lantern-toggle" class="lantern-btn hidden">💡</button>
-      
-      <div id="lantern-aim-bar" class="lantern-aim-bar hidden">
-        <button id="btn-aim-left" class="aim-btn">↶</button>
-        <button id="btn-aim-front" class="aim-btn active">🎯</button>
-        <button id="btn-aim-right" class="aim-btn">↷</button>
       </div>
     </div>
 

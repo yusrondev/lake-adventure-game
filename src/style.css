@@ -61,29 +61,35 @@ html, body {
   transform: translate(-50%, -100%);
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(10, 18, 36, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 2px solid var(--tag-color, #38bdf8);
-  padding: 4px 12px;
-  border-radius: 20px;
+  gap: 5px;
+  background: rgba(10, 18, 36, 0.40);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--tag-color, rgba(56, 189, 248, 0.45));
+  padding: 2px 8px;
+  border-radius: 12px;
   color: #ffffff;
   font-family: 'Outfit', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px var(--tag-color, rgba(56, 189, 248, 0.3));
+  opacity: 0.55;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   user-select: none;
+  transition: opacity 0.2s ease;
   will-change: transform, left, top;
 }
 
+.html-nametag:hover {
+  opacity: 0.95;
+}
+
 .html-nametag .host-icon {
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1;
-  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.9));
+  filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.8));
 }
 
 .html-nametag .nametag-text {
@@ -129,6 +135,86 @@ html, body {
   text-align: center;
   white-space: nowrap;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Floating Lantern Action & Aim Controls (Fixed Bottom-Right Corner Placement) */
+.lantern-hud-container {
+  position: fixed !important;
+  right: max(32px, env(safe-area-inset-right)) !important;
+  bottom: max(32px, env(safe-area-inset-bottom)) !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 35 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 12px;
+  pointer-events: auto !important;
+}
+
+.lantern-btn {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(13, 25, 48, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 215, 0, 0.7);
+  color: #ffffff;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(255, 215, 0, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.lantern-btn:active {
+  transform: scale(0.92);
+}
+
+.lantern-aim-bar {
+  display: flex;
+  gap: 8px;
+  background: rgba(13, 25, 48, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+  padding: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.lantern-aim-bar.hidden {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.aim-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aim-btn.active {
+  background: rgba(0, 242, 254, 0.28);
+  border-color: #00f2fe;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 242, 254, 0.45);
 }
 
 /* HUD Overlay */
@@ -1014,6 +1100,7 @@ kbd {
   border-radius: 50%;
   box-shadow: 0 0 8px #10b981;
 }
+
 
 .hidden {
   display: none !important;

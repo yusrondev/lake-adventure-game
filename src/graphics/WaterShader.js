@@ -144,10 +144,10 @@ export class WaterSystem {
             }
           }
 
-          gl_FragColor = vec4(finalColor, 0.94);
+          gl_FragColor = vec4(finalColor, 1.0);
         }
       `,
-      transparent: true,
+      transparent: false,
       side: THREE.DoubleSide
     });
   }
