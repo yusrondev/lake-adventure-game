@@ -9,7 +9,7 @@ export class WeatherManager {
     // Daily Rain Schedule State
     // 1 Day = 24.0 in-game hours
     this.currentDayIndex = 0;
-    this.scheduledRainHour = this.generateRandomRainHour();
+    this.scheduledRainHour = 22.0; // Day 0 rain scheduled at 22:00 PM (guarantees 100% clear start at 17:30 Sore/Senja)
     this.drizzleDurationSeconds = 15.0; // 15 real seconds of clear-sky drizzle before storm
     this.rainDurationHours = 3.6;     // Extended longer duration for rain & storm
     this.clearingDurationHours = 1.0; // Smooth clearing phase
@@ -41,14 +41,14 @@ export class WeatherManager {
   }
 
   generateRandomRainHour() {
-    // Pick a random hour in the day (e.g., between 4:00 AM and 22:00 PM)
-    return 4.0 + Math.random() * 18.0;
+    // Pick a random hour in the later afternoon/night (between 11:00 AM and 22:00 PM)
+    return 11.0 + Math.random() * 11.0;
   }
 
   // --- 1. REALISTIC NATURAL TRANSLUCENT STREAK RAIN ---
   initStreakRain() {
-    // Generous drop count to cover the full lake perspective in front of the boat
-    this.dropCount = 6500;
+    // Light natural drop count to keep view clear and performant
+    this.dropCount = 2200;
     this.rainGeo = new THREE.BufferGeometry();
     
     // Each line segment has 2 vertices (start & end) -> 2 * 3 = 6 floats per drop
@@ -278,9 +278,14 @@ export class WeatherManager {
     const physics = this.game.physics;
     if (!physics) return;
 
-    // Reduce Boat HP by 10%
-    physics.health = Math.max(0, physics.health - 10);
+    // Reduce Boat HP by 5 (5%)
+    physics.health = Math.max(0, physics.health - 5);
     
+    // Trigger boat white blink electric flash effect
+    if (this.game.woodenBoat && this.game.woodenBoat.triggerWhiteBlink) {
+      this.game.woodenBoat.triggerWhiteBlink(0.55);
+    }
+
     // Heavy camera shake and electric visual flash
     this.game.screenShake = 0.85;
     
@@ -497,7 +502,7 @@ export class WeatherManager {
       if (this.rainIntensity > 0.01) {
         this.rainLines.visible = true;
         // Soft translucent natural opacity (0.35 - 0.45, lighter during drizzle)
-        const opacityScale = (this.weatherState === 'DRIZZLE') ? 0.28 : 0.45;
+        const opacityScale = (this.weatherState === 'DRIZZLE') ? 0.18 : 0.28;
         this.rainMat.opacity = this.rainIntensity * opacityScale;
 
         const pos = this.rainGeo.attributes.position.array;

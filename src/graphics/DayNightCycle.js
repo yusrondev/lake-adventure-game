@@ -49,8 +49,9 @@ export class DayNightCycle {
       { time: 6.8,  sky: 0x60a5fa, fog: 0xdbeafe, fogDensity: 0.005, light: 0xfffaed, lightIntensity: 1.25, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xfde047, glareOpacity: 0.75, sunScale: 1.2 },  // Pagi Emas
       { time: 12.0, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.004, light: 0xffffff, lightIntensity: 1.65, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xffea00, glareOpacity: 1.00, sunScale: 1.45 }, // Siang Cerah
       { time: 15.5, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.005, light: 0xfef08a, lightIntensity: 1.35, starOpacity: 0.00, sunMat: 0xfffaed, halo: 0xfbbf24, glareOpacity: 0.80, sunScale: 1.25 }, // Sore
-      { time: 17.5, sky: 0xfb923c, fog: 0xf59e0b, fogDensity: 0.006, light: 0xfbbf24, lightIntensity: 0.90, starOpacity: 0.00, sunMat: 0xfb923c, halo: 0xf59e0b, glareOpacity: 0.60, sunScale: 1.05 }, // Sunset Golden Amber
-      { time: 19.5, sky: 0x2e1065, fog: 0x1e1b4b, fogDensity: 0.007, light: 0x6366f1, lightIntensity: 0.38, starOpacity: 0.00, sunMat: 0xd97706, halo: 0xb45309, glareOpacity: 0.20, sunScale: 0.75 }, // Twilight Dusk
+      { time: 17.5, sky: 0xf97316, fog: 0xf59e0b, fogDensity: 0.006, light: 0xfbbf24, lightIntensity: 0.95, starOpacity: 0.00, sunMat: 0xf97316, halo: 0xeab308, glareOpacity: 0.70, sunScale: 1.20 }, // Sunset Golden Amber
+      { time: 18.8, sky: 0xc2410c, fog: 0xea580c, fogDensity: 0.0065, light: 0xf97316, lightIntensity: 0.65, starOpacity: 0.00, sunMat: 0xef4444, halo: 0xf97316, glareOpacity: 0.50, sunScale: 1.35 }, // Deep Crimson Sunset Horizon (Sinking Sun)
+      { time: 19.8, sky: 0x311042, fog: 0x2e1065, fogDensity: 0.007, light: 0x6366f1, lightIntensity: 0.35, starOpacity: 0.20, sunMat: 0xd97706, halo: 0x9a3412, glareOpacity: 0.15, sunScale: 1.00 }, // Twilight Dusk
       { time: 21.5, sky: 0x08132b, fog: 0x08132b, fogDensity: 0.007, light: 0x2c3e50, lightIntensity: 0.25, starOpacity: 0.85, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 },  // Malam
       { time: 24.0, sky: 0x060c1c, fog: 0x060c1c, fogDensity: 0.007, light: 0x2c3e50, lightIntensity: 0.28, starOpacity: 0.95, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 }
     ];
@@ -298,25 +299,27 @@ export class DayNightCycle {
     // Advance Time of Day (0.0 to 24.0 hours)
     this.timeOfDay = (this.timeOfDay + this.timeSpeed * delta) % 24.0;
 
-    // Daytime sun trajectory (Sunrise 05:15 to Sunset 19:15)
-    // Map timeOfDay in [5.25, 19.25] to daytime angle [-PI/2, +PI/2]
-    const dayProgress = (this.timeOfDay - 5.25) / 14.0; // 0 at dawn, 0.5 at noon, 1 at sunset
+    // Daytime sun trajectory (Sunrise 04:45 to Sunset 20:15)
+    // Map timeOfDay in [4.75, 20.25] to daytime angle [-PI/2, +PI/2]
+    const dayProgress = (this.timeOfDay - 4.75) / 15.5; // 0 at dawn, 0.5 at noon, 1 at sunset
     const sunAngle = (dayProgress - 0.5) * Math.PI; // -PI/2 to +PI/2
 
     // Sun stays ALWAYS deep in the celestial background (-Z axis, 2200m away in distant horizon)
     const sunDistance = 2200.0;
     const sunX = playerPos.x + Math.sin(sunAngle * 0.25) * 80.0;
-    const sunY = Math.max(22.0, Math.cos(sunAngle) * 580.0 + 35.0);
+    // Allow sun to physically dip below horizon line (down to Y = -55.0) so top sliver remains visible as it sets
+    const sunY = Math.cos(sunAngle) * 630.0 - 55.0;
     const sunZ = playerPos.z - sunDistance;
 
     this.sunGroup.position.set(sunX, sunY, sunZ);
     // Dynamic Sunlight for directional shadows anchored near player
-    this.sunLight.position.set(playerPos.x + 60.0, Math.max(35.0, sunY * 0.35 + 20.0), playerPos.z - 80.0);
+    this.sunLight.position.set(playerPos.x + 60.0, Math.max(25.0, sunY * 0.35 + 20.0), playerPos.z - 80.0);
     if (this.sunLight.target) {
       this.sunLight.target.position.copy(playerPos);
     }
 
-    const horizonFade = THREE.MathUtils.clamp((sunY - 20.0) / 90.0, 0.0, 1.0);
+    // Smooth horizon fade as sun dips deep below horizon (-55m)
+    const horizonFade = THREE.MathUtils.clamp((sunY + 60.0) / 110.0, 0.0, 1.0);
 
     if (this.haloMesh) {
       this.haloMesh.lookAt(this.camera.position);
@@ -335,8 +338,8 @@ export class DayNightCycle {
 
     // Synchronized Night Opacity & Fade-In/Fade-Out for BOTH Moon and Stars
     let nightOpacity = 0.0;
-    if (this.timeOfDay >= 20.5 && this.timeOfDay < 21.5) {
-      nightOpacity = (this.timeOfDay - 20.5) / 1.0; // Smooth fade in at nightfall
+    if (this.timeOfDay >= 20.2 && this.timeOfDay < 21.5) {
+      nightOpacity = (this.timeOfDay - 20.2) / 1.3; // Smooth fade in at nightfall
     } else if (this.timeOfDay >= 21.5 || this.timeOfDay <= 4.0) {
       nightOpacity = 1.0; // Glowing moon & twinkling stars in deep night
     } else if (this.timeOfDay > 4.0 && this.timeOfDay <= 5.0) {
@@ -402,8 +405,8 @@ export class DayNightCycle {
       this.moonMat.opacity = nightOpacity * (1.0 - stormOvercast);
     }
 
-    // Strict Celestial Visibility Control
-    const isDaytime = (this.timeOfDay >= 5.25 && this.timeOfDay <= 19.25);
+    // Strict Celestial Visibility Control (Sun remains visible through sunset until it dips below horizon at 20.25)
+    const isDaytime = (this.timeOfDay >= 4.75 && this.timeOfDay <= 20.25);
     this.sunGroup.visible = isDaytime && (stormOvercast < 0.95);
 
     // Apply values to Three.js elements
@@ -456,10 +459,13 @@ export class DayNightCycle {
       }
     }
 
-    // Update Water Material Specular Light Uniforms dynamically
+    // Update Water Material Specular Light & Sky Color Uniforms dynamically
     if (this.waterMaterial && this.waterMaterial.uniforms) {
       if (this.waterMaterial.uniforms.uSunColor) {
         this.waterMaterial.uniforms.uSunColor.value.copy(this.sunLightColorCurrent);
+      }
+      if (this.waterMaterial.uniforms.uSkyColor) {
+        this.waterMaterial.uniforms.uSkyColor.value.copy(this.skyColorCurrent);
       }
       if (this.waterMaterial.uniforms.uSunDirection) {
         this.waterMaterial.uniforms.uSunDirection.value.set(sunX - playerPos.x, sunY, sunZ - playerPos.z).normalize();

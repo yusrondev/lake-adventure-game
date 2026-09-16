@@ -120,9 +120,9 @@ export class RockManager {
     const offsetZ = (rng.random() - 0.5) * (segmentLength - 30);
     const rockZ = zCenter + offsetZ;
 
-    // Do not spawn rocks directly in the gateway zone of Japanese Torii Gates (every 2000m)
+    // Do not spawn rocks anywhere near the gateway zone of Japanese Torii Gates (every 2000m)
     const nearestGateZ = Math.round(rockZ / 2000) * 2000;
-    if (Math.abs(rockZ - nearestGateZ) < 45) return;
+    if (Math.abs(rockZ - nearestGateZ) < 150) return;
 
     // Distribute across left, center-left, center-right, and right lanes
     const laneChoices = [-10.5, -4.5, 4.5, 10.5];
@@ -155,8 +155,8 @@ export class RockManager {
     rockMesh.updateMatrixWorld(true);
 
     // Calculate true physical horizontal radius of this rock instance at water level
-    const radiusWaterX = (this.baseExtents.x * 0.5) * scaleX * 0.70;
-    const radiusWaterZ = (this.baseExtents.z * 0.5) * scaleZ * 0.70;
+    const radiusWaterX = (this.baseExtents.x * 0.5) * scaleX * 1.0;
+    const radiusWaterZ = (this.baseExtents.z * 0.5) * scaleZ * 1.0;
     const effectiveWaterRadius = Math.max(radiusWaterX, radiusWaterZ);
 
     segmentRocks.push({
@@ -216,7 +216,7 @@ export class RockManager {
         const dx = rock.x - boatPos.x;
         const dz = rock.z - boatPos.z;
         const distSq = dx * dx + dz * dz;
-        const maxCutoff = halfLength + rock.effectiveWaterRadius + 1.0;
+        const maxCutoff = halfLength + rock.effectiveWaterRadius + 2.0;
         if (distSq > maxCutoff * maxCutoff) {
           continue;
         }
@@ -275,25 +275,26 @@ export class RockManager {
             physics.safeChannelLimit - 0.3
           );
 
-          // 2. STOP FORWARD SPEED & APPLY STEERING BOUNCE IMPULSE
-          physics.speed = Math.max(0, physics.speed * 0.15);
-          physics.turnSpeed = normX * 1.5;
+          // 2. BOUNCE & GLIDE SMOOTHLY (Maintain ~75% forward speed at high speed)
+          const retainFactor = Math.abs(physics.speed) > 5.0 ? 0.75 : 0.50;
+          physics.speed = physics.speed * retainFactor;
+          physics.turnSpeed = normX * 0.8;
 
-          // 3. DAMAGE & FEEDBACK (Only trigger HP reduction when incoming speed >= 40 km/h and not invulnerable)
+          // Trigger wood dust & splinter explosion at rock collision impact point
+          if (physics.boat && physics.boat.triggerImpactDust) {
+            physics.boat.triggerImpactDust(rock.x, 0.4, rock.z, normX, normZ);
+          }
+
+          // 3. DAMAGE & FEEDBACK (-2 HP reduction on rock collision)
           if (physics.invulnerableTimer <= 0) {
-            if (incomingSpeedKmH >= 40.0) {
-              physics.health = Math.max(0, physics.health - 20);
-              physics.invulnerableTimer = 0.8;
+            physics.health = Math.max(0, physics.health - 2);
+            physics.invulnerableTimer = 0.5;
 
-              if (this.game) {
-                this.game.triggerDamageFeedback();
-                if (physics.health <= 0) {
-                  this.game.gameOver();
-                }
+            if (this.game) {
+              this.game.triggerDamageFeedback();
+              if (physics.health <= 0) {
+                this.game.gameOver('Perahu Anda hancur menabrak bebatuan.');
               }
-            } else {
-              // Gentle scrape/bump below 40 km/h: physical bounce only, no HP damage
-              physics.invulnerableTimer = 0.35;
             }
           }
 

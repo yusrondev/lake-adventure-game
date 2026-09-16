@@ -199,14 +199,16 @@ class InfiniteLakeGame {
     this.scene.background = new THREE.Color(0x60a5fa);
     this.scene.fog = new THREE.FogExp2(0x60a5fa, 0.007);
 
-    // Wide perspective camera POV with extended draw distance for distant landmarks (Torii gates)
+    // Responsive perspective camera POV (Dynamic FOV & Offset based on Portrait vs Landscape)
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const initialFOV = isLandscape ? 48 : 62;
     this.camera = new THREE.PerspectiveCamera(
-      68,
+      initialFOV,
       window.innerWidth / window.innerHeight,
       0.1,
       3500
     );
-    this.camera.position.set(0, 9.5, 18.0);
+    this.camera.position.set(0, isLandscape ? 6.8 : 8.5, isLandscape ? 12.8 : 15.5);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -263,23 +265,26 @@ class InfiniteLakeGame {
     window.addEventListener('keyup', (e) => this.handleKey(e, false));
 
     window.addEventListener('resize', () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      this.camera.fov = isLandscape ? 48 : 62;
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Reliable Event Binding Helper
+    // Reliable Event Binding Helper (Throttle duplicate pointerdown/click events to preserve User Activation)
     const bindBtn = (btnEl, actionFn) => {
       if (!btnEl) return;
+      let handled = false;
       const handler = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        actionFn();
+        if (handled) return;
+        handled = true;
+        setTimeout(() => { handled = false; }, 300);
+        this.requestFullscreenMode();
+        actionFn(e);
       };
-      btnEl.addEventListener('pointerdown', handler);
       btnEl.addEventListener('click', handler);
+      btnEl.addEventListener('touchend', handler);
     };
 
     // Mode Selection Handlers
@@ -708,18 +713,30 @@ class InfiniteLakeGame {
     }
   }
 
+  requestFullscreenMode() {
+    const docEl = document.documentElement;
+    const req = docEl.requestFullscreen ||
+                docEl.webkitRequestFullscreen ||
+                docEl.mozRequestFullScreen ||
+                docEl.msRequestFullscreen;
+
+    if (req && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      try {
+        const p = req.call(docEl);
+        if (p && p.catch) {
+          p.catch(err => console.log('[Fullscreen info]', err));
+        }
+      } catch (e) {
+        console.log('[Fullscreen error]', e);
+      }
+    }
+  }
+
   startGame() {
     this.gameState = 'PLAYING';
     this.modalScreen.classList.add('hidden');
 
-    const elem = document.documentElement;
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen().catch(() => {});
-    } else if (elem.webkitRequestFullscreen) {
-      elem.webkitRequestFullscreen().catch(() => {});
-    } else if (elem.msRequestFullscreen) {
-      elem.msRequestFullscreen().catch(() => {});
-    }
+    this.requestFullscreenMode();
     
     this.physics.worldPosition.set(0, 0, 0);
     this.physics.playerLocalPos.set(0, 0);
@@ -895,7 +912,7 @@ class InfiniteLakeGame {
           if (hit) {
             this.triggerDamageFeedback();
             if (this.isMultiplayer) {
-              this.networkManager.sendCollision(20, this.physics.health, gateCollision.bounceDir, gateCollision.penetration, this.physics.speed);
+              this.networkManager.sendCollision(2, this.physics.health, gateCollision.bounceDir, gateCollision.penetration, this.physics.speed);
             }
             if (this.physics.health <= 0) {
               this.gameOver('Perahu Anda hancur menabrak tiang gerbang Torii.');
@@ -911,7 +928,7 @@ class InfiniteLakeGame {
         if (hit) {
           this.triggerDamageFeedback();
           if (this.isMultiplayer) {
-            this.networkManager.sendCollision(20, this.physics.health, collision.bounceDir, collision.penetration, this.physics.speed);
+            this.networkManager.sendCollision(2, this.physics.health, collision.bounceDir, collision.penetration, this.physics.speed);
           }
           if (this.physics.health <= 0) {
             this.gameOver();
@@ -940,8 +957,13 @@ class InfiniteLakeGame {
         if (this.lanternAimBar) this.lanternAimBar.classList.add('hidden');
       }
 
-      // Zero-GC Camera Tracking (Wide POV: Vector3(0, 9.5, 18.0))
-      this.tempCamOffset.set(0, 9.5, 18.0);
+      // Zero-GC Aspect-Responsive Camera Tracking (Closer & tighter in Landscape so boat remains prominent)
+      const isLandscapeView = window.innerWidth > window.innerHeight;
+      if (isLandscapeView) {
+        this.tempCamOffset.set(0, 6.8, 12.8);
+      } else {
+        this.tempCamOffset.set(0, 8.5, 15.5);
+      }
       this.tempCamOffset.applyAxisAngle(this.upAxis, this.physics.heading * 0.15);
 
       this.targetCamPos.copy(pPos).add(this.tempCamOffset);

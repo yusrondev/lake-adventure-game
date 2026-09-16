@@ -16,40 +16,45 @@ export class TerrainSegment {
   }
 
   buildSegment() {
-    // Stylized Low-Poly Faceted Materials (flatShading: true)
+    // Stylized Low-Poly Faceted Cliff & Mountain Materials (flatShading: true with realistic sun specular reflection)
     const lowPolyGrassMat = new THREE.MeshStandardMaterial({
-      color: 0x2e7d32,
-      roughness: 0.85,
+      color: 0x388e3c,
+      roughness: 0.55,
+      metalness: 0.08,
       flatShading: true
     });
 
     const lowPolyRockMat = new THREE.MeshStandardMaterial({
-      color: 0x546e7a,
-      roughness: 0.9,
+      color: 0x607d8b,
+      roughness: 0.48,
+      metalness: 0.18,
       flatShading: true
     });
 
     const lowPolyEarthMat = new THREE.MeshStandardMaterial({
-      color: 0x4e342e,
-      roughness: 0.95,
+      color: 0x5d4037,
+      roughness: 0.52,
+      metalness: 0.12,
       flatShading: true
     });
 
     const lowPolyTrunkMat = new THREE.MeshStandardMaterial({
       color: 0x3e2723,
-      roughness: 0.9,
+      roughness: 0.85,
       flatShading: true
     });
 
     const lowPolyPineMat1 = new THREE.MeshStandardMaterial({
       color: 0x1b5e20,
-      roughness: 0.7,
+      roughness: 0.60,
+      metalness: 0.05,
       flatShading: true
     });
 
     const lowPolyPineMat2 = new THREE.MeshStandardMaterial({
       color: 0x2e7d32,
-      roughness: 0.7,
+      roughness: 0.60,
+      metalness: 0.05,
       flatShading: true
     });
 

@@ -21,6 +21,7 @@ export class WaterSystem {
         uShallowColor: { value: new THREE.Color(0x1382a3) }, // Clear turquoise
         uFoamColor: { value: new THREE.Color(0xe8f8ff) },    // Soft white foam
         uSunColor: { value: new THREE.Color(0xfffaea) },
+        uSkyColor: { value: new THREE.Color(0xfb923c) },    // Dynamic sky glow color
         uSunDirection: { value: new THREE.Vector3(0.5, 0.8, 0.5).normalize() },
         uSpotLightPos: { value: new THREE.Vector3(0, 2.0, -3.0) },
         uSpotLightDir: { value: new THREE.Vector3(0, -0.3, -1.0).normalize() },
@@ -75,8 +76,8 @@ export class WaterSystem {
         uniform vec3 uShallowColor;
         uniform vec3 uFoamColor;
         uniform vec3 uSunColor;
+        uniform vec3 uSkyColor;
         uniform vec3 uSunDirection;
-
         uniform vec3 uSpotLightPos;
         uniform vec3 uSpotLightDir;
         uniform vec3 uSpotLightColor;
@@ -111,36 +112,38 @@ export class WaterSystem {
           float crestFoam = smoothstep(0.22, 0.42, vWaveHeight) * 0.25;
           vec3 waterCol = mix(baseWater, uFoamColor, crestFoam);
 
-          // Soft Specular Sun Glint (No checkerboard artifacts)
-          vec3 halfVector = normalize(uSunDirection + viewDir);
+          // Clean, Smooth Specular Sun Reflection on Water (No lines or stripes)
+          vec3 lightDir = normalize(uSunDirection);
+          vec3 halfVector = normalize(lightDir + viewDir);
+
           float NdotH = max(0.0, dot(worldNormal, halfVector));
-          float specular = pow(NdotH, 48.0) * 0.35;
+          float sunGlintCore = pow(NdotH, 64.0) * 0.55;
 
-          // Sky Glow
-          vec3 skyGlow = vec3(0.45, 0.70, 0.90);
-          vec3 finalColor = mix(waterCol, skyGlow, fresnel * 0.35) + uSunColor * specular;
+          // Dynamic Sky Reflection using uSkyColor (matches sunset/day/night)
+          vec3 finalColor = mix(waterCol, uSkyColor, fresnel * 0.35) + uSunColor * sunGlintCore;
 
-          // Dynamic Searchlight Headlight Projection on Lake Water (Soft Warm Amber Glow, No Whiteout)
+          // Dynamic Searchlight Headlight Projection on Lake Water (Bright Warm Amber Glow, Soft Edges)
           if (uSpotLightIntensity > 0.01) {
             vec3 lightToSurf = vWorldPosition - uSpotLightPos;
             float dist = length(lightToSurf);
-            vec3 lDir = normalize(-lightToSurf);
+            vec3 lDir = normalize(lightToSurf);
             
-            float cosAngle = dot(lDir, normalize(-uSpotLightDir));
+            float cosAngle = dot(lDir, normalize(uSpotLightDir));
             float cosCutoff = cos(uSpotLightAngle);
             
-            if (cosAngle > cosCutoff && dist < 180.0) {
-              float coneAtten = smoothstep(cosCutoff, cosCutoff + 0.06, cosAngle);
-              float normDist = clamp(dist / 180.0, 0.0, 1.0);
-              float distAtten = pow(1.0 - normDist, 1.8); // Soft long-range quadratic falloff
+            if (cosAngle > cosCutoff && dist < 140.0) {
+              // Smooth continuous radial falloff from beam center to outer edge (no hard triangular boundary)
+              float angleFactor = clamp((cosAngle - cosCutoff) / (1.0 - cosCutoff), 0.0, 1.0);
+              float coneAtten = pow(angleFactor, 1.8);
+              float distAtten = pow(clamp(1.0 - (dist / 140.0), 0.0, 1.0), 1.2);
               
-              vec3 spotHalfVec = normalize(lDir + viewDir);
+              vec3 spotHalfVec = normalize(-lDir + viewDir);
               float spotNdotH = max(0.0, dot(worldNormal, spotHalfVec));
-              float spotSpec = pow(spotNdotH, 30.0) * 0.45; // Soft wave glint
+              float spotSpec = pow(spotNdotH, 24.0) * 0.6; // Vibrant specular glint on water surface
               
               float lightFactor = coneAtten * distAtten * uSpotLightIntensity;
-              vec3 warmGlow = uSpotLightColor * (0.35 + spotSpec);
-              finalColor = mix(finalColor, finalColor + warmGlow, clamp(lightFactor, 0.0, 0.50));
+              vec3 warmGlow = uSpotLightColor * (0.85 + spotSpec);
+              finalColor = mix(finalColor, finalColor + warmGlow, clamp(lightFactor * 0.75, 0.0, 0.85));
             }
           }
 

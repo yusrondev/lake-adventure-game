@@ -22,10 +22,12 @@ export class WoodenBoat {
     this.currentSpotlightAngle = 0;
     this.lanternSway = new THREE.Vector2(0, 0);
     this.lanternVel = new THREE.Vector2(0, 0);
+    this.blinkTimer = 0;
 
     this.buildLowPolyBoatMesh();
     this.buildHangingLantern();
     this.initSternSplashSystem();
+    this.initImpactDustSystem();
     this.initHullContour();
 
     if (this.scene) {
@@ -249,6 +251,7 @@ export class WoodenBoat {
     this.vBeamPivot.position.set(0, 0.35, this.lanternProwZ);
 
     this.beamMesh = new THREE.Mesh(beamGeo, this.beamMat);
+    this.beamMesh.visible = false; // Disable fake 2D canvas plane mesh to eliminate white triangle artifact
     this.vBeamPivot.add(this.beamMesh);
     this.mesh.add(this.vBeamPivot);
 
@@ -267,7 +270,7 @@ export class WoodenBoat {
     if (this.isLanternOn) {
       this.lanternPointLight.intensity = 2.5;
       this.lanternSpotLight.intensity = 35.0;
-      this.beamMat.opacity = 0.28;
+      this.beamMat.opacity = 0.0; // Keep 2D canvas triangle mesh invisible
       this.flameMat.color.setHex(0xffffff);
     } else {
       this.lanternPointLight.intensity = 0.0;
@@ -338,16 +341,61 @@ export class WoodenBoat {
     }
   }
 
+  generateWaterParticleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    // Soft organic radial water drop / foam alpha gradient (zero hard box edges!)
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 0.95)');
+    grad.addColorStop(0.35, 'rgba(224, 242, 254, 0.75)');
+    grad.addColorStop(0.70, 'rgba(186, 230, 253, 0.30)');
+    grad.addColorStop(1.0, 'rgba(186, 230, 253, 0.0)');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(32, 32, 32, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  generateDustParticleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 0.90)');
+    grad.addColorStop(0.40, 'rgba(240, 230, 210, 0.60)');
+    grad.addColorStop(0.75, 'rgba(200, 180, 150, 0.20)');
+    grad.addColorStop(1.0, 'rgba(200, 180, 150, 0.0)');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(32, 32, 32, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
   initSternSplashSystem() {
-    this.splashCount = 80;
-    this.splashGeo = new THREE.DodecahedronGeometry(0.09, 0);
-    this.splashMat = new THREE.MeshStandardMaterial({
-      color: 0xebf8ff,
-      roughness: 0.25,
-      metalness: 0.1,
+    this.splashCount = 100;
+    this.splashGeo = new THREE.PlaneGeometry(0.40, 0.40);
+    this.splashGeo.rotateX(-Math.PI / 2);
+
+    const waterTexture = this.generateWaterParticleTexture();
+
+    this.splashMat = new THREE.MeshBasicMaterial({
+      map: waterTexture,
       transparent: true,
-      opacity: 0.75,
-      flatShading: true
+      opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.NormalBlending,
+      side: THREE.DoubleSide
     });
 
     this.splashPool = [];
@@ -361,8 +409,11 @@ export class WoodenBoat {
       this.splashPool.push({
         mesh: mesh,
         active: false,
+        type: 'STERN', // 'STERN', 'LEFT_SIDE', 'RIGHT_SIDE'
         x: 0, y: 0, z: 0,
         vx: 0, vy: 0, vz: 0,
+        startScale: 0.4,
+        endScale: 2.2,
         life: 0,
         maxLife: 0.4
       });
@@ -404,53 +455,113 @@ export class WoodenBoat {
 
   updateSplash(speed, turnRate, delta) {
     const absSpeed = Math.abs(speed);
-    
-    // 1. Spawning realistic small wake spray particles behind boat stern
+
+    // 1. Spawning realistic water wake & side bow spray particles
     if (absSpeed > 0.8) {
       this.spawnTimer -= delta;
-      const spawnInterval = Math.max(0.012, 0.08 - absSpeed * 0.003); // Faster boat = more frequent particles
-      
+      const spawnInterval = Math.max(0.010, 0.06 - absSpeed * 0.0025);
+
       if (this.spawnTimer <= 0) {
         this.spawnTimer = spawnInterval;
-        const countToSpawn = Math.min(3, 1 + Math.floor(absSpeed / 4.0));
-        
-        for (let k = 0; k < countToSpawn; k++) {
-          const p = this.splashPool.find(drop => !drop.active);
-          if (p) {
-            p.active = true;
-            p.life = 0;
-            p.maxLife = 0.28 + Math.random() * 0.22;
-            
-            // Spawn along stern rear edge (z = +4.0m to +4.3m, x = -1.1m to +1.1m)
-            const sternX = (Math.random() - 0.5) * 2.2;
-            const sternZ = (this.length / 2) - 0.1 + (Math.random() - 0.5) * 0.4;
-            
-            p.x = sternX;
-            p.y = 0.02 + Math.random() * 0.08;
-            p.z = sternZ;
-            
-            // Dynamic upward and trailing velocity
-            const speedRatio = Math.min(1.0, absSpeed / 16.0);
-            p.vx = (Math.random() - 0.5) * (0.8 + speedRatio * 1.2) - (turnRate * 0.8);
-            p.vy = 1.0 + Math.random() * 2.2 * speedRatio;
-            p.vz = 0.8 + Math.random() * 2.5 * speedRatio; // Spray backwards relative to boat
-            
-            p.mesh.visible = true;
-            p.mesh.position.set(p.x, p.y, p.z);
-            p.mesh.scale.setScalar(0.7 + Math.random() * 0.8);
-            p.mesh.material.opacity = 0.75;
-          }
+
+        // A. STERN WAKE FOAM (Behind boat)
+        const pStern = this.splashPool.find(p => !p.active);
+        if (pStern) {
+          pStern.active = true;
+          pStern.type = 'STERN';
+          pStern.life = 0;
+          pStern.maxLife = 0.35 + Math.random() * 0.25;
+
+          const sternX = (Math.random() - 0.5) * 2.0;
+          const sternZ = (this.length / 2) - 0.2 + (Math.random() - 0.5) * 0.3;
+
+          pStern.x = sternX;
+          pStern.y = 0.03 + Math.random() * 0.06;
+          pStern.z = sternZ;
+
+          const speedRatio = Math.min(1.0, absSpeed / 16.0);
+          pStern.vx = (Math.random() - 0.5) * (0.6 + speedRatio * 1.0) - (turnRate * 0.6);
+          pStern.vy = 0.4 + Math.random() * 1.2 * speedRatio;
+          pStern.vz = 0.8 + Math.random() * 2.2 * speedRatio;
+
+          pStern.startScale = 0.4 + Math.random() * 0.3;
+          pStern.endScale = 1.8 + Math.random() * 1.0;
+
+          pStern.mesh.position.set(pStern.x, pStern.y, pStern.z);
+          pStern.mesh.scale.setScalar(pStern.startScale);
+          pStern.mesh.material.opacity = 0.70;
+          pStern.mesh.visible = true;
+        }
+
+        // B. LEFT SIDE BOW WATER SPRAY (Sprays outward-left as hull cuts through water)
+        const pLeft = this.splashPool.find(p => !p.active);
+        if (pLeft) {
+          pLeft.active = true;
+          pLeft.type = 'LEFT_SIDE';
+          pLeft.life = 0;
+          pLeft.maxLife = 0.30 + Math.random() * 0.20;
+
+          const sideZ = -1.8 + (Math.random() - 0.5) * 2.4;
+          const halfW = this.getHullHalfWidthAtZ(sideZ);
+
+          pLeft.x = -halfW - 0.08;
+          pLeft.y = 0.04 + Math.random() * 0.06;
+          pLeft.z = sideZ;
+
+          const speedRatio = Math.min(1.0, absSpeed / 16.0);
+          const turnExtra = turnRate < 0 ? Math.abs(turnRate) * 1.5 : 0;
+          pLeft.vx = -(1.2 + Math.random() * 1.8 + turnExtra) * speedRatio;
+          pLeft.vy = 0.6 + Math.random() * 1.4 * speedRatio;
+          pLeft.vz = (0.4 + Math.random() * 1.2) * speedRatio;
+
+          pLeft.startScale = 0.3 + Math.random() * 0.2;
+          pLeft.endScale = 1.4 + Math.random() * 0.8;
+
+          pLeft.mesh.position.set(pLeft.x, pLeft.y, pLeft.z);
+          pLeft.mesh.scale.setScalar(pLeft.startScale);
+          pLeft.mesh.material.opacity = 0.65;
+          pLeft.mesh.visible = true;
+        }
+
+        // C. RIGHT SIDE BOW WATER SPRAY (Sprays outward-right as hull cuts through water)
+        const pRight = this.splashPool.find(p => !p.active);
+        if (pRight) {
+          pRight.active = true;
+          pRight.type = 'RIGHT_SIDE';
+          pRight.life = 0;
+          pRight.maxLife = 0.30 + Math.random() * 0.20;
+
+          const sideZ = -1.8 + (Math.random() - 0.5) * 2.4;
+          const halfW = this.getHullHalfWidthAtZ(sideZ);
+
+          pRight.x = halfW + 0.08;
+          pRight.y = 0.04 + Math.random() * 0.06;
+          pRight.z = sideZ;
+
+          const speedRatio = Math.min(1.0, absSpeed / 16.0);
+          const turnExtra = turnRate > 0 ? Math.abs(turnRate) * 1.5 : 0;
+          pRight.vx = (1.2 + Math.random() * 1.8 + turnExtra) * speedRatio;
+          pRight.vy = 0.6 + Math.random() * 1.4 * speedRatio;
+          pRight.vz = (0.4 + Math.random() * 1.2) * speedRatio;
+
+          pRight.startScale = 0.3 + Math.random() * 0.2;
+          pRight.endScale = 1.4 + Math.random() * 0.8;
+
+          pRight.mesh.position.set(pRight.x, pRight.y, pRight.z);
+          pRight.mesh.scale.setScalar(pRight.startScale);
+          pRight.mesh.material.opacity = 0.65;
+          pRight.mesh.visible = true;
         }
       }
     }
 
-    // 2. Physics update for active splash particles
-    const gravity = -8.5;
+    // 2. Physics update for active water spray & foam particles
+    const gravity = -5.5;
     for (const p of this.splashPool) {
       if (p.active) {
         p.life += delta;
         const progress = p.life / p.maxLife;
-        
+
         if (progress >= 1.0 || p.y < -0.2) {
           p.active = false;
           p.mesh.visible = false;
@@ -459,13 +570,205 @@ export class WoodenBoat {
           p.x += p.vx * delta;
           p.y += p.vy * delta;
           p.z += p.vz * delta;
-          
+
           p.mesh.position.set(p.x, p.y, p.z);
-          // Splash expands slightly as foam and fades out
-          const scale = (0.8 + progress * 0.6);
+
+          const scale = THREE.MathUtils.lerp(p.startScale, p.endScale, progress);
           p.mesh.scale.setScalar(scale);
-          p.mesh.material.opacity = (1.0 - progress) * 0.70;
+          p.mesh.material.opacity = (1.0 - progress) * 0.65;
         }
+      }
+    }
+  }
+
+  initImpactDustSystem() {
+    this.dustPool = [];
+    const dustCount = 45;
+
+    const circleGeo = new THREE.CircleGeometry(0.35, 8);
+    const shardGeo = new THREE.BoxGeometry(0.10, 0.05, 0.14);
+
+    const dustColors = [0x8b5a2b, 0xc2a68c, 0xa08060, 0x6e4a27, 0xd4b896];
+
+    this.dustGroup = new THREE.Group();
+    if (this.scene) {
+      this.scene.add(this.dustGroup);
+    }
+
+    const dustTexture = this.generateDustParticleTexture();
+
+    for (let i = 0; i < dustCount; i++) {
+      const isShard = i % 4 === 0;
+      let mesh;
+      if (isShard) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0x4a2e16,
+          transparent: true,
+          opacity: 0.95
+        });
+        mesh = new THREE.Mesh(shardGeo, mat);
+      } else {
+        const color = dustColors[i % dustColors.length];
+        const mat = new THREE.MeshBasicMaterial({
+          map: dustTexture,
+          color: color,
+          transparent: true,
+          opacity: 0.85,
+          depthWrite: false,
+          side: THREE.DoubleSide
+        });
+        mesh = new THREE.Mesh(circleGeo, mat);
+        mesh.rotation.x = -Math.PI * 0.35;
+      }
+
+      mesh.visible = false;
+      this.dustGroup.add(mesh);
+
+      this.dustPool.push({
+        mesh: mesh,
+        active: false,
+        life: 0,
+        maxLife: 0.6,
+        isShard: isShard,
+        x: 0, y: 0, z: 0,
+        vx: 0, vy: 0, vz: 0,
+        rotVx: 0, rotVy: 0,
+        startScale: 0.3,
+        endScale: 2.2
+      });
+    }
+  }
+
+  triggerImpactDust(worldX, worldY, worldZ, normalX = 0, normalZ = 0) {
+    const particlesToSpawn = 22;
+    let spawned = 0;
+
+    for (const p of this.dustPool) {
+      if (!p.active) {
+        p.active = true;
+        p.life = 0;
+        p.maxLife = p.isShard ? (0.45 + Math.random() * 0.3) : (0.65 + Math.random() * 0.45);
+
+        p.x = worldX + (Math.random() - 0.5) * 0.7;
+        p.y = worldY + (Math.random() - 0.5) * 0.4;
+        p.z = worldZ + (Math.random() - 0.5) * 0.7;
+
+        const speedMult = p.isShard ? (3.5 + Math.random() * 3.5) : (1.4 + Math.random() * 2.2);
+        const spreadX = (Math.random() - 0.5) * 1.6 + normalX * 1.4;
+        const spreadZ = (Math.random() - 0.5) * 1.6 + normalZ * 1.4;
+
+        p.vx = spreadX * speedMult * 0.65;
+        p.vy = 1.4 + Math.random() * 2.6;
+        p.vz = spreadZ * speedMult * 0.65;
+
+        if (p.isShard) {
+          p.rotVx = (Math.random() - 0.5) * 14.0;
+          p.rotVy = (Math.random() - 0.5) * 14.0;
+          p.startScale = 0.8 + Math.random() * 0.6;
+          p.endScale = p.startScale;
+        } else {
+          p.startScale = 0.35 + Math.random() * 0.25;
+          p.endScale = 2.0 + Math.random() * 1.4;
+        }
+
+        p.mesh.position.set(p.x, p.y, p.z);
+        p.mesh.scale.setScalar(p.startScale);
+        p.mesh.material.opacity = p.isShard ? 0.95 : 0.85;
+        p.mesh.visible = true;
+
+        spawned++;
+        if (spawned >= particlesToSpawn) break;
+      }
+    }
+  }
+
+  updateImpactDust(delta) {
+    const gravity = -6.5;
+    for (const p of this.dustPool) {
+      if (p.active) {
+        p.life += delta;
+        const progress = p.life / p.maxLife;
+
+        if (progress >= 1.0) {
+          p.active = false;
+          p.mesh.visible = false;
+        } else {
+          p.vy += gravity * delta * (p.isShard ? 1.6 : 0.35);
+          p.x += p.vx * delta;
+          p.y += p.vy * delta;
+          p.z += p.vz * delta;
+
+          p.vx *= (1.0 - 2.8 * delta);
+          p.vz *= (1.0 - 2.8 * delta);
+
+          p.mesh.position.set(p.x, p.y, p.z);
+
+          if (p.isShard) {
+            p.mesh.rotation.x += p.rotVx * delta;
+            p.mesh.rotation.y += p.rotVy * delta;
+          } else {
+            const currentScale = THREE.MathUtils.lerp(p.startScale, p.endScale, progress);
+            p.mesh.scale.setScalar(currentScale);
+            p.mesh.material.opacity = (1.0 - progress) * 0.85;
+          }
+        }
+      }
+    }
+  }
+
+  triggerWhiteBlink(duration = 0.55) {
+    this.blinkTimer = duration;
+  }
+
+  updateBlink(delta) {
+    if (this.blinkTimer <= 0) return;
+
+    this.blinkTimer -= delta;
+    const isWhite = this.blinkTimer > 0 && (Math.floor(this.blinkTimer * 22) % 2 === 0);
+
+    this.mesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach(m => this.applyMeshBlink(m, isWhite));
+        } else {
+          this.applyMeshBlink(child.material, isWhite);
+        }
+      }
+    });
+
+    if (this.blinkTimer <= 0) {
+      this.mesh.traverse((child) => {
+        if (child.isMesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => this.restoreMeshColor(m));
+          } else {
+            this.restoreMeshColor(child.material);
+          }
+        }
+      });
+    }
+  }
+
+  applyMeshBlink(material, isWhite) {
+    if (!material.userData) material.userData = {};
+    if (!material.userData.origColor) {
+      material.userData.origColor = material.color.clone();
+      if (material.emissive) material.userData.origEmissive = material.emissive.clone();
+    }
+
+    if (isWhite) {
+      material.color.setHex(0xffffff);
+      if (material.emissive) material.emissive.setHex(0xffffff);
+    } else {
+      this.restoreMeshColor(material);
+    }
+  }
+
+  restoreMeshColor(material) {
+    if (material.userData && material.userData.origColor) {
+      material.color.copy(material.userData.origColor);
+      if (material.emissive && material.userData.origEmissive) {
+        material.emissive.copy(material.userData.origEmissive);
       }
     }
   }

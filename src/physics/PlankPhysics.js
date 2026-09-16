@@ -20,7 +20,7 @@ export class PlankPhysics {
 
     // Hydrodynamic parameters
     this.speed = 0;              
-    this.maxSpeed = 16.0;        
+    this.maxSpeed = 65.0;        
     this.maxReverseSpeed = 4.8; // ~17 km/h max reverse speed
     this.acceleration = 11.0;    
     this.brakingRate = 16.0;     
@@ -28,8 +28,8 @@ export class PlankPhysics {
 
     this.heading = 0;            
     this.turnSpeed = 0;          
-    this.maxTurnSpeed = 0.55;    
-    this.maxHeadingAngle = 0.61; // Exact 35.0 degree max steering angle
+    this.maxTurnSpeed = 0.32;    // Reduced sensitivity max turning speed
+    this.maxHeadingAngle = 0.44; // Exact 25.0 degree max steering angle
 
     this.roll = 0;               
     this.pitch = 0;              
@@ -46,7 +46,7 @@ export class PlankPhysics {
   }
 
   applyJoystickVector(normX, normY, delta) {
-    const moveRate = 3.6; // Walking speed on deck
+    const moveRate = 2.4; // Smooth deck walking rate for fine steering control
     this.targetPlayerLocalPos.x += normX * moveRate * delta;
     this.targetPlayerLocalPos.y += normY * moveRate * delta;
 
@@ -57,7 +57,7 @@ export class PlankPhysics {
   }
 
   updateInput(input, delta) {
-    const moveRate = 3.6;
+    const moveRate = 2.4;
 
     let dirX = 0;
     let dirZ = 0;
@@ -83,7 +83,7 @@ export class PlankPhysics {
     }
 
     // 1. SMOOTH PLAYER POSITION ON BOAT DECK (Player remains at last position!)
-    const posDamp = 1.0 - Math.exp(-12.0 * delta);
+    const posDamp = 1.0 - Math.exp(-8.0 * delta);
     this.playerLocalPos.x += (this.targetPlayerLocalPos.x - this.playerLocalPos.x) * posDamp;
     this.playerLocalPos.y += (this.targetPlayerLocalPos.y - this.playerLocalPos.y) * posDamp;
 
@@ -114,25 +114,18 @@ export class PlankPhysics {
     const normX = avgLocalX / (activeMaxX > 0 ? activeMaxX : 0.7);
     const normZ = avgLocalZ / this.maxZ;
 
-    // 2. DYNAMIC HYDRODYNAMIC STEERING & SAFE ROLL TILT (Wide 50° Cap)
-    let targetTurnRate = 0;
-    // Capped realistic hull roll (max ~11.5° tilt) to prevent boat capsizing
-    const targetRoll = THREE.MathUtils.clamp(-normX * 0.20, -0.20, 0.20); 
+    // 2. DYNAMIC HYDRODYNAMIC STEERING & SAFE ROLL TILT (Pure lateral drift + roll tilt, NO diagonal yaw serong)
+    let activeLateralSpeed = 0;
+    const targetRoll = THREE.MathUtils.clamp(-normX * 0.22, -0.22, 0.22); 
 
-    if (Math.abs(normX) > 0.22) {
-      const activeX = (normX - Math.sign(normX) * 0.22) / 0.78;
-      targetTurnRate = activeX * this.maxTurnSpeed;
-    } else {
-      // Neutral center position: gently auto-straighten heading back towards 0°
-      targetTurnRate = -this.heading * 0.8;
+    if (Math.abs(normX) > 0.18) {
+      const activeX = (normX - Math.sign(normX) * 0.18) / 0.82;
+      activeLateralSpeed = activeX * 16.0;
     }
 
-    const steerDamp = 1.0 - Math.exp(-6.0 * delta);
-    this.turnSpeed += (targetTurnRate - this.turnSpeed) * steerDamp;
-    this.heading += this.turnSpeed * delta;
-    
-    // Smoothly clamp heading within generous ~50.4° max wide angle
-    this.heading = THREE.MathUtils.clamp(this.heading, -this.maxHeadingAngle, this.maxHeadingAngle);
+    const steerDamp = 1.0 - Math.exp(-4.5 * delta);
+    this.turnSpeed += (activeLateralSpeed - this.turnSpeed) * steerDamp;
+    this.heading = 0; // Lock heading straight forward down channel (tanpa serong!)
 
     // 3. BASE CRUISING SPEED, ACCELERATION & REVERSE DYNAMICS (With Collision Impact Stun Penalty)
     const baseCruisingSpeed = 3.6; // ~13 km/h
@@ -144,10 +137,8 @@ export class PlankPhysics {
 
     if (this.collisionSlowTimer > 0) {
       this.collisionSlowTimer -= delta;
-      // Heavy sluggish recovery after impact (Temporary speed cap ~6.5 km/h)
-      activeMaxSpeed = 1.8;
-      activeAcceleration = this.acceleration * 0.35;
-      activeCruisingSpeed = 1.2;
+      // Slight acceleration dampening after impact without hard stopping
+      activeAcceleration = this.acceleration * 0.6;
     }
 
     if (normZ > 0.15) {
@@ -194,32 +185,34 @@ export class PlankPhysics {
       wavePitch = (frontWave - backWave) * 0.35;
     }
 
-    const targetPitch = (normZ * 0.12) + wavePitch;
+    // Pure level pitch (no forward/backward leaning / doyong), retaining left/right roll tilt (miring kanan kiri)
+    const targetPitch = 0;
     const tiltDamp = 1.0 - Math.exp(-6.0 * delta);
     this.pitch += (targetPitch - this.pitch) * tiltDamp;
     this.roll += (targetRoll - this.roll) * tiltDamp;
 
-    // 5. WORLD POSITION UPDATE
-    const forwardX = Math.sin(this.heading);
-    const forwardZ = -Math.cos(this.heading);
-
-    this.worldPosition.x += forwardX * this.speed * delta;
-    this.worldPosition.z += forwardZ * this.speed * delta;
+    // 5. WORLD POSITION UPDATE (Straight forward along Z, smooth lateral drift along X)
+    this.worldPosition.x += this.turnSpeed * delta;
+    this.worldPosition.z -= this.speed * delta;
     this.worldPosition.y = waveY * 0.8;
 
     this.worldPosition.x = THREE.MathUtils.clamp(this.worldPosition.x, -this.safeChannelLimit, this.safeChannelLimit);
 
-    // 6. THREE.JS MESH UPDATES
+    // 6. THREE.JS MESH UPDATES (Strictly 0 pitch, 0 heading yaw serong, ONLY left/right roll tilt)
+    this.heading = 0;
+    this.pitch = 0;
     this.boat.mesh.position.copy(this.worldPosition);
-    this.boat.mesh.rotation.set(this.pitch, this.heading, this.roll, 'YXZ');
+    this.boat.mesh.rotation.set(0, 0, this.roll, 'YXZ');
 
     // Humanoid is child of boat: set local position flush on deck floor (deckY)
     this.humanoid.mesh.position.set(this.playerLocalPos.x, this.boat.deckY || 0.12, this.playerLocalPos.y);
     this.humanoid.updateAnimation(this.speed, this.playerLocalPos, this.targetPlayerLocalPos, delta);
 
-    // Update Splash & Wake Particles + Lantern Sway Physics & Water Lighting Sync
+    // Update Splash & Wake Particles + Wood Impact Dust + White Blink + Lantern Sway Physics & Water Lighting Sync
     this.boat.updateSplash(this.speed, this.turnSpeed, delta);
-    this.boat.updateLanternPhysics(delta, this.speed, this.turnSpeed, this.roll, this.pitch, this.waterSystem ? this.waterSystem.material : null);
+    if (this.boat.updateImpactDust) this.boat.updateImpactDust(delta);
+    if (this.boat.updateBlink) this.boat.updateBlink(delta);
+    this.boat.updateLanternPhysics(delta, this.speed, this.turnSpeed, this.roll, 0, this.waterSystem ? this.waterSystem.material : null);
   }
 
   // 3D Mesh Contour Shore Collision Check
@@ -242,7 +235,7 @@ export class PlankPhysics {
       new THREE.Vector3(sternWidth, 0, halfLength * 0.85) // Stern Starboard
     ];
 
-    const rotMatrix = new THREE.Euler(this.pitch, this.heading, this.roll, 'YXZ');
+    const rotMatrix = new THREE.Euler(0, 0, this.roll, 'YXZ');
 
     for (const localPt of localHullPoints) {
       const worldPt = localPt.clone().applyEuler(rotMatrix).add(this.worldPosition);
@@ -261,18 +254,21 @@ export class PlankPhysics {
     let didDamage = false;
 
     if (isInitialHit) {
-      if (speedKmH >= 40.0) {
-        this.health = Math.max(0, this.health - 20);
-        this.invulnerableTimer = 0.7;
-        didDamage = true;
-      } else {
-        // Safe bump/graze below 40 km/h -> no damage taken
-        this.invulnerableTimer = 0.35;
-      }
+      // Unconditional -2 HP damage on collision
+      this.health = Math.max(0, this.health - 2);
+      this.invulnerableTimer = 0.6;
+      didDamage = true;
     }
 
-    // Smooth physical separation force (No hard teleporting steps, no visual glitching!)
-    const pushAmount = Math.max(0.08, (penetration || 0.4) * 0.35);
+    // Trigger wood dust & splinter explosion at collision impact point
+    const impactX = this.worldPosition.x - bounceDirection * 1.6;
+    const impactZ = this.worldPosition.z;
+    if (this.boat && this.boat.triggerImpactDust) {
+      this.boat.triggerImpactDust(impactX, 0.4, impactZ, bounceDirection, 0);
+    }
+
+    // Smooth physical separation force (bounce off smoothly towards open water)
+    const pushAmount = Math.max(0.35, (penetration || 0.4) * 0.6);
     this.worldPosition.x += bounceDirection * pushAmount;
     this.worldPosition.x = THREE.MathUtils.clamp(
       this.worldPosition.x,
@@ -280,16 +276,17 @@ export class PlankPhysics {
       this.safeChannelLimit - 0.2
     );
 
-    // Smoothly redirect turn rate & heading towards open water in a curved arc
-    this.turnSpeed = THREE.MathUtils.lerp(this.turnSpeed, bounceDirection * 0.85, 0.25);
-    this.heading = THREE.MathUtils.lerp(this.heading, bounceDirection * 0.18, 0.2);
+    // Apply lateral turn speed impulse away from shore/wall without turning heading serong
+    this.turnSpeed = bounceDirection * 5.0;
+    this.heading = 0;
 
-    // Smooth natural water resistance deceleration & heavy collision speed drop
-    this.speed = Math.max(0, this.speed * 0.15);
-    this.collisionSlowTimer = 1.5;
+    // Maintain momentum (~75% forward speed at high speed)
+    const retainFactor = Math.abs(this.speed) > 5.0 ? 0.75 : 0.50;
+    this.speed = this.speed * retainFactor;
+    this.collisionSlowTimer = 0.5;
 
     // Smooth visual roll banking response upon impact
-    this.roll = THREE.MathUtils.lerp(this.roll, -bounceDirection * 0.22, 0.3);
+    this.roll = THREE.MathUtils.lerp(this.roll, -bounceDirection * 0.25, 0.4);
 
     return didDamage;
   }

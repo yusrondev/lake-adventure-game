@@ -189,17 +189,57 @@ export class ToriiGateManager {
   checkPillarCollision(boatWorldPos, hullRadius = 1.4) {
     for (const gate of this.activeGates.values()) {
       const dz = Math.abs(boatWorldPos.z - gate.zPos);
-      if (dz < 3.0) {
-        // Left pillar check
-        const distLeft = Math.hypot(boatWorldPos.x - gate.leftPillarX, boatWorldPos.z - gate.zPos);
-        if (distLeft < gate.pillarRadius + hullRadius) {
-          return { collided: true, bounceDir: 1, penetration: (gate.pillarRadius + hullRadius) - distLeft };
+      if (dz < 8.0) { // Increased check distance for high speed
+        // Use precise rectangular bounding boxes for the Torii pillars based on lantern centers (±19.0)
+        // Torii bases are typically rectangular and quite thick.
+        const pillarWidthX = 3.8; // Total width in X
+        const pillarDepthZ = 4.5; // Total depth in Z
+        
+        const leftMinX = -19.0 - (pillarWidthX / 2) - hullRadius;
+        const leftMaxX = -19.0 + (pillarWidthX / 2) + hullRadius;
+        const leftMinZ = gate.zPos - (pillarDepthZ / 2) - hullRadius;
+        const leftMaxZ = gate.zPos + (pillarDepthZ / 2) + hullRadius;
+
+        const rightMinX = 19.0 - (pillarWidthX / 2) - hullRadius;
+        const rightMaxX = 19.0 + (pillarWidthX / 2) + hullRadius;
+        const rightMinZ = gate.zPos - (pillarDepthZ / 2) - hullRadius;
+        const rightMaxZ = gate.zPos + (pillarDepthZ / 2) + hullRadius;
+
+        // Left Pillar check (AABB)
+        if (boatWorldPos.x > leftMinX && boatWorldPos.x < leftMaxX &&
+            boatWorldPos.z > leftMinZ && boatWorldPos.z < leftMaxZ) {
+          
+          // Determine penetration depths to find the closest edge for precise bounce direction
+          const penRight = leftMaxX - boatWorldPos.x;
+          const penLeft = boatWorldPos.x - leftMinX;
+          const penZ = Math.min(leftMaxZ - boatWorldPos.z, boatWorldPos.z - leftMinZ);
+          
+          if (Math.min(penLeft, penRight) < penZ) {
+             // Side hit
+             const bounceDir = penRight < penLeft ? 1 : -1;
+             return { collided: true, bounceDir: bounceDir, penetration: Math.min(penLeft, penRight) };
+          } else {
+             // Front/Back hit (bounce outward slightly)
+             return { collided: true, bounceDir: 1, penetration: penZ };
+          }
         }
 
-        // Right pillar check
-        const distRight = Math.hypot(boatWorldPos.x - gate.rightPillarX, boatWorldPos.z - gate.zPos);
-        if (distRight < gate.pillarRadius + hullRadius) {
-          return { collided: true, bounceDir: -1, penetration: (gate.pillarRadius + hullRadius) - distRight };
+        // Right Pillar check (AABB)
+        if (boatWorldPos.x > rightMinX && boatWorldPos.x < rightMaxX &&
+            boatWorldPos.z > rightMinZ && boatWorldPos.z < rightMaxZ) {
+          
+          const penRight = rightMaxX - boatWorldPos.x;
+          const penLeft = boatWorldPos.x - rightMinX;
+          const penZ = Math.min(rightMaxZ - boatWorldPos.z, boatWorldPos.z - rightMinZ);
+          
+          if (Math.min(penLeft, penRight) < penZ) {
+             // Side hit
+             const bounceDir = penRight < penLeft ? 1 : -1;
+             return { collided: true, bounceDir: bounceDir, penetration: Math.min(penLeft, penRight) };
+          } else {
+             // Front/Back hit
+             return { collided: true, bounceDir: -1, penetration: penZ };
+          }
         }
       }
     }
