@@ -26,24 +26,24 @@ const baseMaterials = {
   }),
   grass: new THREE.MeshStandardMaterial({
     color: 0x388e3c,
-    roughness: 0.55,
-    metalness: 0.08,
+    roughness: 0.85,
+    metalness: 0.0,
     flatShading: true,
     transparent: true,
     opacity: 1.0
   }),
   rock: new THREE.MeshStandardMaterial({
-    color: 0x607d8b,
-    roughness: 0.48,
-    metalness: 0.18,
+    color: 0x546e7a,
+    roughness: 0.95,
+    metalness: 0.0,
     flatShading: true,
     transparent: true,
     opacity: 1.0
   }),
   earth: new THREE.MeshStandardMaterial({
     color: 0x5d4037,
-    roughness: 0.52,
-    metalness: 0.12,
+    roughness: 0.90,
+    metalness: 0.0,
     flatShading: true,
     transparent: true,
     opacity: 1.0

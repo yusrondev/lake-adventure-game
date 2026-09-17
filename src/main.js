@@ -246,10 +246,16 @@ class InfiniteLakeGame {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.container.appendChild(this.renderer.domElement);
 
-    const ambientLight = new THREE.HemisphereLight(0xddeeff, 0x224422, 0.65);
-    this.scene.add(ambientLight);
+    // 1. Hemisphere Light (Sky illumination & Ground fill)
+    this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x8099b0, 1.25);
+    this.scene.add(this.hemiLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
+    // 2. Global Ambient Light (360 uniform fill light for canyon walls, rocks & giant swords)
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    this.scene.add(this.ambientLight);
+
+    // 3. Directional Sunlight
+    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.5);
     this.sunLight.position.set(40, 60, 20);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 1024;
@@ -278,7 +284,14 @@ class InfiniteLakeGame {
     this.chunkManager.setRockManager(this.rockManager);
     
     // Dynamic Day-Night Celestial Cycle with giant glowing sun & water lighting sync
-    this.dayNightCycle = new DayNightCycle(this.scene, this.sunLight, this.camera, this.waterSystem.material);
+    this.dayNightCycle = new DayNightCycle(
+      this.scene,
+      this.sunLight,
+      this.camera,
+      this.waterSystem.material,
+      this.hemiLight,
+      this.ambientLight
+    );
 
     // Dynamic Realistic Weather Manager (Rain streaks, overcast, lightning strikes, thunder audio)
     this.weatherManager = new WeatherManager(this.scene, this, this.dayNightCycle);

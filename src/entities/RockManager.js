@@ -59,8 +59,8 @@ export class RockManager {
         if (child.material) {
           child.material.flatShading = true;
           if (child.material.roughness !== undefined) {
-            child.material.roughness = 0.65;
-            child.material.metalness = 0.15;
+            child.material.roughness = 0.95;
+            child.material.metalness = 0.0;
           }
         }
       }

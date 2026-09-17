@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 
 export class DayNightCycle {
-  constructor(scene, sunLight, camera, waterMaterial = null) {
+  constructor(scene, sunLight, camera, waterMaterial = null, hemiLight = null, ambientLight = null) {
     this.scene = scene;
     this.sunLight = sunLight;
     this.camera = camera;
     this.waterMaterial = waterMaterial;
+    this.hemiLight = hemiLight;
+    this.ambientLight = ambientLight;
 
     // Time state (0.0 to 24.0 hours)
     // Start at 5.5 (Golden Dawn / Sunrise)
@@ -22,11 +24,18 @@ export class DayNightCycle {
     this.glareColorCurrent = new THREE.Color();
     this.waterSunColorCurrent = new THREE.Color();
 
+    this.hemiSkyColorCurrent = new THREE.Color();
+    this.hemiGroundColorCurrent = new THREE.Color();
+    this.ambientColorCurrent = new THREE.Color();
+
     // Pre-allocated storm mood colors
     this.stormSkyColor = new THREE.Color(0x151e2e);
     this.stormFogColor = new THREE.Color(0x1c2738);
     this.stormLightColor = new THREE.Color(0x475569);
     this.stormCloudColor = new THREE.Color(0x1e293b);
+    this.stormHemiSkyColor = new THREE.Color(0x1e293b);
+    this.stormHemiGroundColor = new THREE.Color(0x0f172a);
+    this.stormAmbientColor = new THREE.Color(0x1e293b);
 
     this.weatherManager = null;
     this.currentFogDensity = 0.0018;
@@ -42,19 +51,19 @@ export class DayNightCycle {
   }
 
   initKeyframes() {
-    // 100% Realistic Continuous 24-hour Life Cycle Keyframes with Natural Golden Sunrise
+    // 100% Realistic Continuous 24-hour Life Cycle Keyframes with Vibrant Daytime Fill Light
     this.keyframes = [
-      { time: 0.0,  sky: 0x060c1c, fog: 0x060c1c, fogDensity: 0.007, light: 0x2c3e50, lightIntensity: 0.28, starOpacity: 0.95, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 },
-      { time: 4.5,  sky: 0x111c3a, fog: 0x152244, fogDensity: 0.007, light: 0x475569, lightIntensity: 0.35, starOpacity: 0.70, sunMat: 0xfbbf24, halo: 0xd97706, glareOpacity: 0.15, sunScale: 0.7 },
-      { time: 5.5,  sky: 0x4a6b8f, fog: 0xfde68a, fogDensity: 0.006, light: 0xfef08a, lightIntensity: 0.75, starOpacity: 0.00, sunMat: 0xfef08a, halo: 0xfbbf24, glareOpacity: 0.45, sunScale: 0.9 }, // Golden Dawn / Sunrise
-      { time: 6.8,  sky: 0x60a5fa, fog: 0xdbeafe, fogDensity: 0.005, light: 0xfffaed, lightIntensity: 1.25, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xfde047, glareOpacity: 0.75, sunScale: 1.2 },  // Pagi Emas
-      { time: 12.0, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.004, light: 0xffffff, lightIntensity: 1.65, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xffea00, glareOpacity: 1.00, sunScale: 1.45 }, // Siang Cerah
-      { time: 15.5, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.005, light: 0xfef08a, lightIntensity: 1.35, starOpacity: 0.00, sunMat: 0xfffaed, halo: 0xfbbf24, glareOpacity: 0.80, sunScale: 1.25 }, // Sore
-      { time: 17.5, sky: 0xf97316, fog: 0xf59e0b, fogDensity: 0.006, light: 0xfbbf24, lightIntensity: 0.95, starOpacity: 0.00, sunMat: 0xf97316, halo: 0xeab308, glareOpacity: 0.70, sunScale: 1.20 }, // Sunset Golden Amber
-      { time: 18.8, sky: 0xc2410c, fog: 0xea580c, fogDensity: 0.0065, light: 0xf97316, lightIntensity: 0.65, starOpacity: 0.00, sunMat: 0xef4444, halo: 0xf97316, glareOpacity: 0.50, sunScale: 1.35 }, // Deep Crimson Sunset Horizon (Sinking Sun)
-      { time: 19.8, sky: 0x311042, fog: 0x2e1065, fogDensity: 0.007, light: 0x6366f1, lightIntensity: 0.35, starOpacity: 0.20, sunMat: 0xd97706, halo: 0x9a3412, glareOpacity: 0.15, sunScale: 1.00 }, // Twilight Dusk
-      { time: 21.5, sky: 0x08132b, fog: 0x08132b, fogDensity: 0.007, light: 0x2c3e50, lightIntensity: 0.25, starOpacity: 0.85, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 },  // Malam
-      { time: 24.0, sky: 0x060c1c, fog: 0x060c1c, fogDensity: 0.007, light: 0x2c3e50, lightIntensity: 0.28, starOpacity: 0.95, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 }
+      { time: 0.0,  sky: 0x060c1c, fog: 0x060c1c, fogDensity: 0.007, light: 0x3b82f6, lightIntensity: 0.35, hemiSky: 0x1e293b, hemiGround: 0x0f172a, hemiIntensity: 0.45, ambient: 0x1e293b, ambientIntensity: 0.30, starOpacity: 0.95, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 },
+      { time: 4.5,  sky: 0x111c3a, fog: 0x152244, fogDensity: 0.007, light: 0x60a5fa, lightIntensity: 0.45, hemiSky: 0x334155, hemiGround: 0x1e293b, hemiIntensity: 0.55, ambient: 0x334155, ambientIntensity: 0.40, starOpacity: 0.70, sunMat: 0xfbbf24, halo: 0xd97706, glareOpacity: 0.15, sunScale: 0.7 },
+      { time: 5.5,  sky: 0x4a6b8f, fog: 0xfde68a, fogDensity: 0.006, light: 0xfef08a, lightIntensity: 0.85, hemiSky: 0x93c5fd, hemiGround: 0x475569, hemiIntensity: 0.90, ambient: 0xfde047, ambientIntensity: 0.55, starOpacity: 0.00, sunMat: 0xfef08a, halo: 0xfbbf24, glareOpacity: 0.45, sunScale: 0.9 }, // Golden Dawn / Sunrise
+      { time: 6.8,  sky: 0x60a5fa, fog: 0xdbeafe, fogDensity: 0.005, light: 0xfffaed, lightIntensity: 1.35, hemiSky: 0xffffff, hemiGround: 0x8592a6, hemiIntensity: 1.25, ambient: 0xffffff, ambientIntensity: 0.65, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xfde047, glareOpacity: 0.75, sunScale: 1.2 },  // Pagi Emas
+      { time: 12.0, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.004, light: 0xffffff, lightIntensity: 1.50, hemiSky: 0xffffff, hemiGround: 0x94a3b8, hemiIntensity: 1.35, ambient: 0xffffff, ambientIntensity: 0.70, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xffea00, glareOpacity: 1.00, sunScale: 1.45 }, // Siang Cerah
+      { time: 15.5, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.005, light: 0xfef08a, lightIntensity: 1.40, hemiSky: 0xffffff, hemiGround: 0x8592a6, hemiIntensity: 1.30, ambient: 0xffffff, ambientIntensity: 0.68, starOpacity: 0.00, sunMat: 0xfffaed, halo: 0xfbbf24, glareOpacity: 0.80, sunScale: 1.25 }, // Sore
+      { time: 17.5, sky: 0xf97316, fog: 0xf59e0b, fogDensity: 0.006, light: 0xfbbf24, lightIntensity: 1.10, hemiSky: 0xfed7aa, hemiGround: 0x78350f, hemiIntensity: 1.05, ambient: 0xfdba74, ambientIntensity: 0.60, starOpacity: 0.00, sunMat: 0xf97316, halo: 0xeab308, glareOpacity: 0.70, sunScale: 1.20 }, // Sunset Golden Amber
+      { time: 18.8, sky: 0xc2410c, fog: 0xea580c, fogDensity: 0.0065, light: 0xf97316, lightIntensity: 0.80, hemiSky: 0xf97316, hemiGround: 0x451a03, hemiIntensity: 0.80, ambient: 0xf97316, ambientIntensity: 0.50, starOpacity: 0.00, sunMat: 0xef4444, halo: 0xf97316, glareOpacity: 0.50, sunScale: 1.35 }, // Deep Crimson Sunset Horizon (Sinking Sun)
+      { time: 19.8, sky: 0x311042, fog: 0x2e1065, fogDensity: 0.007, light: 0x6366f1, lightIntensity: 0.50, hemiSky: 0x4338ca, hemiGround: 0x1e1b4b, hemiIntensity: 0.55, ambient: 0x4338ca, ambientIntensity: 0.40, starOpacity: 0.20, sunMat: 0xd97706, halo: 0x9a3412, glareOpacity: 0.15, sunScale: 1.00 }, // Twilight Dusk
+      { time: 21.5, sky: 0x08132b, fog: 0x08132b, fogDensity: 0.007, light: 0x3b82f6, lightIntensity: 0.35, hemiSky: 0x1e293b, hemiGround: 0x0f172a, hemiIntensity: 0.45, ambient: 0x1e293b, ambientIntensity: 0.30, starOpacity: 0.85, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 },  // Malam
+      { time: 24.0, sky: 0x060c1c, fog: 0x060c1c, fogDensity: 0.007, light: 0x3b82f6, lightIntensity: 0.35, hemiSky: 0x1e293b, hemiGround: 0x0f172a, hemiIntensity: 0.45, ambient: 0x1e293b, ambientIntensity: 0.30, starOpacity: 0.95, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 }
     ];
 
     // Pre-create THREE.Color objects for keyframes to prevent GC
@@ -64,6 +73,9 @@ export class DayNightCycle {
       k.cLight = new THREE.Color(k.light);
       k.cSunMat = new THREE.Color(k.sunMat);
       k.cHalo = new THREE.Color(k.halo);
+      k.cHemiSky = new THREE.Color(k.hemiSky);
+      k.cHemiGround = new THREE.Color(k.hemiGround);
+      k.cAmbient = new THREE.Color(k.ambient);
     });
   }
 
@@ -326,10 +338,14 @@ export class DayNightCycle {
     const sunZ = playerPos.z - sunDistance;
 
     this.sunGroup.position.set(sunX, sunY, sunZ);
-    // Dynamic Sunlight for directional shadows anchored near player
-    this.sunLight.position.set(playerPos.x + 60.0, Math.max(25.0, sunY * 0.35 + 20.0), playerPos.z - 80.0);
+    // Dynamic Sunlight for directional shadows positioned behind/above player camera shining down-river
+    this.sunLight.position.set(
+      playerPos.x + Math.sin(sunAngle * 0.25) * 50.0 + 25.0,
+      Math.max(45.0, sunY * 0.45 + 35.0),
+      playerPos.z + 90.0 // Anchored behind player camera at +Z shining down-river toward -Z
+    );
     if (this.sunLight.target) {
-      this.sunLight.target.position.copy(playerPos);
+      this.sunLight.target.position.set(playerPos.x, playerPos.y + 2.0, playerPos.z - 80.0);
     }
 
     // Shadow Off during daytime (5.5h to 18.5h)
@@ -400,9 +416,14 @@ export class DayNightCycle {
     this.sunLightColorCurrent.copy(kPrev.cLight).lerp(kNext.cLight, t);
     this.sunMatColorCurrent.copy(kPrev.cSunMat).lerp(kNext.cSunMat, t);
     this.haloColorCurrent.copy(kPrev.cHalo).lerp(kNext.cHalo, t);
+    this.hemiSkyColorCurrent.copy(kPrev.cHemiSky).lerp(kNext.cHemiSky, t);
+    this.hemiGroundColorCurrent.copy(kPrev.cHemiGround).lerp(kNext.cHemiGround, t);
+    this.ambientColorCurrent.copy(kPrev.cAmbient).lerp(kNext.cAmbient, t);
 
     let fogDensity = THREE.MathUtils.lerp(kPrev.fogDensity, kNext.fogDensity, t);
     let lightIntensity = THREE.MathUtils.lerp(kPrev.lightIntensity, kNext.lightIntensity, t) * horizonFade;
+    let hemiIntensity = THREE.MathUtils.lerp(kPrev.hemiIntensity, kNext.hemiIntensity, t);
+    let ambientIntensity = THREE.MathUtils.lerp(kPrev.ambientIntensity, kNext.ambientIntensity, t);
     let glareOpacity = THREE.MathUtils.lerp(kPrev.glareOpacity, kNext.glareOpacity, t) * horizonFade;
     const sunScale = THREE.MathUtils.lerp(kPrev.sunScale, kNext.sunScale, t);
 
@@ -412,8 +433,13 @@ export class DayNightCycle {
       this.skyColorCurrent.lerp(this.stormSkyColor, stormOvercast * 0.88);
       this.fogColorCurrent.lerp(this.stormFogColor, stormOvercast * 0.85);
       this.sunLightColorCurrent.lerp(this.stormLightColor, stormOvercast * 0.90);
-      
-      lightIntensity = THREE.MathUtils.lerp(lightIntensity, 0.22, stormOvercast * 0.85);
+      this.hemiSkyColorCurrent.lerp(this.stormHemiSkyColor, stormOvercast * 0.85);
+      this.hemiGroundColorCurrent.lerp(this.stormHemiGroundColor, stormOvercast * 0.85);
+      this.ambientColorCurrent.lerp(this.stormAmbientColor, stormOvercast * 0.85);
+
+      lightIntensity = THREE.MathUtils.lerp(lightIntensity, 0.30, stormOvercast * 0.85);
+      hemiIntensity = THREE.MathUtils.lerp(hemiIntensity, 0.45, stormOvercast * 0.85);
+      ambientIntensity = THREE.MathUtils.lerp(ambientIntensity, 0.30, stormOvercast * 0.85);
       fogDensity = THREE.MathUtils.lerp(fogDensity, 0.011, stormOvercast * 0.85);
       glareOpacity *= (1.0 - stormOvercast * 0.9);
       nightOpacity *= (1.0 - stormOvercast * 0.95);
@@ -436,6 +462,17 @@ export class DayNightCycle {
 
     this.sunLight.color.copy(this.sunLightColorCurrent);
     this.sunLight.intensity = lightIntensity;
+
+    if (this.hemiLight) {
+      this.hemiLight.color.copy(this.hemiSkyColorCurrent);
+      this.hemiLight.groundColor.copy(this.hemiGroundColorCurrent);
+      this.hemiLight.intensity = hemiIntensity;
+    }
+
+    if (this.ambientLight) {
+      this.ambientLight.color.copy(this.ambientColorCurrent);
+      this.ambientLight.intensity = ambientIntensity;
+    }
 
     this.sunMat.color.copy(this.sunMatColorCurrent);
     this.sunMat.transparent = true;
