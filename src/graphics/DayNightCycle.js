@@ -244,37 +244,50 @@ export class DayNightCycle {
   }
 
   initStarfield() {
-    this.starCount = 1600;
+    this.starCount = 2500;
     this.starGeo = new THREE.BufferGeometry();
     const starPositions = new Float32Array(this.starCount * 3);
 
     for (let i = 0; i < this.starCount; i++) {
       const theta = Math.random() * Math.PI * 2;
-      // Elevation from horizon (0.02 rad ~ 1 deg up to 0.70 rad ~ 40 deg up)
-      const phi = 0.02 + Math.pow(Math.random(), 1.4) * 0.68;
-      const radius = 1800 + Math.random() * 400;
+      // Elevation from horizon (0.01 rad ~ 0.5 deg up to 0.85 rad ~ 50 deg up)
+      const phi = 0.01 + Math.pow(Math.random(), 1.3) * 0.84;
+      const radius = 1600 + Math.random() * 500;
 
       starPositions[i * 3] = radius * Math.cos(phi) * Math.sin(theta);
-      starPositions[i * 3 + 1] = radius * Math.sin(phi) + 50.0;
+      starPositions[i * 3 + 1] = radius * Math.sin(phi) + 40.0;
       starPositions[i * 3 + 2] = -radius * Math.cos(phi) * Math.cos(theta);
     }
 
     this.starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
 
+    // High-contrast sparkling 4-point star texture
     const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
+    canvas.width = 64;
+    canvas.height = 64;
     const ctx = canvas.getContext('2d');
-    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.4, 'rgba(220, 240, 255, 0.8)');
-    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    grad.addColorStop(0.2, 'rgba(238, 242, 255, 0.95)');
+    grad.addColorStop(0.5, 'rgba(186, 230, 253, 0.50)');
+    grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 32, 32);
+    ctx.fillRect(0, 0, 64, 64);
+
+    // Cross flare lines for diamond starlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(32, 8); ctx.lineTo(32, 56);
+    ctx.moveTo(8, 32); ctx.lineTo(56, 32);
+    ctx.stroke();
+
     const starTex = new THREE.CanvasTexture(canvas);
 
     this.starMat = new THREE.PointsMaterial({
-      size: 1.8,
+      size: 3.8,
+      sizeAttenuation: false, // Critical for crisp, clear star visibility at infinite background distance
       map: starTex,
       transparent: true,
       opacity: 0.0,
@@ -338,12 +351,12 @@ export class DayNightCycle {
 
     // Synchronized Night Opacity & Fade-In/Fade-Out for BOTH Moon and Stars
     let nightOpacity = 0.0;
-    if (this.timeOfDay >= 20.2 && this.timeOfDay < 21.5) {
-      nightOpacity = (this.timeOfDay - 20.2) / 1.3; // Smooth fade in at nightfall
-    } else if (this.timeOfDay >= 21.5 || this.timeOfDay <= 4.0) {
-      nightOpacity = 1.0; // Glowing moon & twinkling stars in deep night
-    } else if (this.timeOfDay > 4.0 && this.timeOfDay <= 5.0) {
-      nightOpacity = 1.0 - (this.timeOfDay - 4.0) / 1.0; // Smooth fade out at dawn
+    if (this.timeOfDay >= 19.2 && this.timeOfDay < 20.8) {
+      nightOpacity = (this.timeOfDay - 19.2) / 1.6; // Smooth fade in starting at sunset dusk
+    } else if (this.timeOfDay >= 20.8 || this.timeOfDay <= 4.5) {
+      nightOpacity = 1.0; // Sparkling moon & brilliant diamond stars in deep night
+    } else if (this.timeOfDay > 4.5 && this.timeOfDay <= 5.8) {
+      nightOpacity = 1.0 - (this.timeOfDay - 4.5) / 1.3; // Smooth fade out at dawn
     }
     nightOpacity = THREE.MathUtils.clamp(nightOpacity, 0.0, 1.0);
 
@@ -358,7 +371,8 @@ export class DayNightCycle {
 
     this.starPoints.position.copy(playerPos);
     this.starPoints.visible = isNightActive;
-    this.starMat.opacity = nightOpacity * 0.95;
+    this.starMat.opacity = nightOpacity * 1.0;
+    this.starMat.size = 3.6 + Math.sin(this.elapsedTime * 2.5) * 0.45; // Subtle twinkling starlight pulse
 
     // 100% Smooth Continuous Keyframe Interpolation
     let kPrev = this.keyframes[0];

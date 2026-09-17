@@ -133,6 +133,20 @@ export class ToriiGateManager {
     available.zPos = zPos;
     available.gateIndex = gateIndex;
     available.passed = false;
+    available.opacity = 0.0;
+    available.isFadingIn = true;
+
+    // Clone materials for independent smooth fade-in
+    available.group.traverse((child) => {
+      if (child.isMesh && child.material) {
+        if (!child.userData.originalMat) {
+          child.userData.originalMat = child.material;
+        }
+        child.material = child.userData.originalMat.clone();
+        child.material.transparent = true;
+        child.material.opacity = 0.0;
+      }
+    });
 
     // Instant zero-cost reposition and activation
     available.group.position.set(0, 0, zPos);
@@ -147,7 +161,7 @@ export class ToriiGateManager {
     gate.group.position.set(0, -9999, 0);
   }
 
-  update(playerZ) {
+  update(playerZ, delta = 0.016) {
     if (!this.isLoaded || !this.gateTemplate) return;
 
     const minZ = playerZ - this.visibleDistanceAhead; // Ahead in negative Z
@@ -168,7 +182,27 @@ export class ToriiGateManager {
       }
     }
 
-    // 2. Check gate passing and return out-of-range gates to pool (0ms cost)
+    // 2. Smooth Fade-In for active Torii Gates
+    for (const gate of this.activeGates.values()) {
+      if (gate.isFadingIn) {
+        gate.opacity += delta * 1.4; // Fades in over ~0.7 seconds
+        if (gate.opacity >= 1.0) {
+          gate.opacity = 1.0;
+          gate.isFadingIn = false;
+        }
+
+        gate.group.traverse((child) => {
+          if (child.isMesh && child.material) {
+            child.material.opacity = gate.opacity;
+            if (!gate.isFadingIn) {
+              child.material.transparent = false;
+            }
+          }
+        });
+      }
+    }
+
+    // 3. Check gate passing and return out-of-range gates to pool (0ms cost)
     for (const [idx, gate] of this.activeGates.entries()) {
       if (idx < minGateIdx || idx > maxGateIdx) {
         this.releaseGateToPool(gate);

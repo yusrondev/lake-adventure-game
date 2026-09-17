@@ -15,6 +15,9 @@
   <!-- Crisp Vector HTML Nametag Overlay Container -->
   <div id="nametags-container"></div>
 
+  <!-- 3D World Space Floating Damage Container -->
+  <div id="world-damage-container"></div>
+
   <!-- Floating Lantern Action & 360 Degree Aim Controls (Top-Level Fixed Right Element) -->
   <div id="lantern-hud-container" class="lantern-hud-container">
     <button id="btn-lantern-toggle" class="lantern-btn hidden">💡</button>
@@ -31,24 +34,16 @@
     <!-- Top Bar: Compact Single-Row Icon HUD -->
     <div class="hud-top-bar">
       <div class="hud-compact-ribbon">
-        <!-- Durability Health Pill -->
+        <!-- Durability Health Percentage Pill -->
         <div class="hud-pill hud-hp-pill">
           <div class="hp-row">
             <span id="hp-val" class="hp-text">100%</span>
           </div>
-          <div class="hp-bar-container">
-            <div id="hp-bar-fill" class="hp-bar-fill"></div>
-          </div>
         </div>
 
         <div class="hud-divider"></div>
 
-        <!-- Compass Direction Badge -->
-        <div class="hud-pill">
-          <span id="compass-val" class="compass-text">0°</span>
-        </div>
 
-        <div class="hud-divider"></div>
 
         <!-- Distance -->
         <div class="hud-pill">

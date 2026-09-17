@@ -299,6 +299,10 @@ export class WeatherManager {
       this.game.updateHpUI();
     }
 
+    if (this.game.spawnFloatingDamage) {
+      this.game.spawnFloatingDamage(5);
+    }
+
     // Check game over
     if (physics.health <= 0) {
       this.game.gameOver("Perahu Anda hancur tersambar petir di tengah badai!");

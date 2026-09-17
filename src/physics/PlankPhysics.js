@@ -254,15 +254,19 @@ export class PlankPhysics {
     let didDamage = false;
 
     if (isInitialHit) {
-      // Unconditional -2 HP damage on collision
-      this.health = Math.max(0, this.health - 2);
       this.invulnerableTimer = 0.6;
-      didDamage = true;
+      // 0 Damage if speed is under 50 km/h for all objects
+      if (speedKmH >= 50.0) {
+        this.health = Math.max(0, this.health - 2);
+        didDamage = true;
+      }
     }
 
     // Trigger wood dust & splinter explosion at collision impact point
     const impactX = this.worldPosition.x - bounceDirection * 1.6;
     const impactZ = this.worldPosition.z;
+    this.lastImpactPos = { x: impactX, y: 0.8, z: impactZ };
+
     if (this.boat && this.boat.triggerImpactDust) {
       this.boat.triggerImpactDust(impactX, 0.4, impactZ, bounceDirection, 0);
     }
@@ -288,7 +292,7 @@ export class PlankPhysics {
     // Smooth visual roll banking response upon impact
     this.roll = THREE.MathUtils.lerp(this.roll, -bounceDirection * 0.25, 0.4);
 
-    return didDamage;
+    return didDamage ? { hit: true, impactPos: this.lastImpactPos } : false;
   }
 
   getBoatState() {

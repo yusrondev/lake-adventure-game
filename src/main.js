@@ -101,6 +101,19 @@ class InfiniteLakeGame {
       this.highscoreEl.innerHTML = `${this.highScore} <small>m</small>`;
     }
 
+    // In-Game Background Music (BGM)
+    this.bgmAudio = new Audio('/music/pirate.mp3');
+    this.bgmAudio.loop = true;
+    this.bgmAudio.volume = 0.55;
+
+    const handleInteractionAudio = () => {
+      if (this.gameState === 'PLAYING' && this.bgmAudio && this.bgmAudio.paused) {
+        this.bgmAudio.play().catch(() => {});
+      }
+    };
+    window.addEventListener('click', handleInteractionAudio);
+    window.addEventListener('touchstart', handleInteractionAudio);
+
     // Game state & Mode
     this.gameState = 'MENU';
     this.isMultiplayer = false;
@@ -148,6 +161,13 @@ class InfiniteLakeGame {
     if (viewId === 'mp-lobby' && this.viewMpLobby) this.viewMpLobby.classList.remove('hidden');
     if (viewId === 'waiting-room' && this.viewWaitingRoom) this.viewWaitingRoom.classList.remove('hidden');
     if (viewId === 'game-over' && this.viewGameOver) this.viewGameOver.classList.remove('hidden');
+
+    if (viewId === 'mode-select' || viewId === 'game-over') {
+      if (this.bgmAudio) {
+        this.bgmAudio.pause();
+        this.bgmAudio.currentTime = 0;
+      }
+    }
   }
 
   startAssetPreloading() {
@@ -201,7 +221,7 @@ class InfiniteLakeGame {
   initThree() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x60a5fa);
-    this.scene.fog = new THREE.FogExp2(0x60a5fa, 0.007);
+    this.scene.fog = new THREE.FogExp2(0x60a5fa, 0.0050);
 
     // Responsive perspective camera POV (Dynamic FOV & Offset based on Portrait vs Landscape)
     const isLandscape = window.innerWidth > window.innerHeight;
@@ -228,8 +248,8 @@ class InfiniteLakeGame {
     this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
     this.sunLight.position.set(40, 60, 20);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.mapSize.width = 1024;
+    this.sunLight.shadow.mapSize.height = 1024;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 200;
     this.sunLight.shadow.camera.left = -30;
@@ -755,33 +775,81 @@ class InfiniteLakeGame {
     this.distanceTraveled = 0;
     if (this.swordRainManager) this.swordRainManager.reset();
     this.updateHpUI();
+
+    if (this.bgmAudio) {
+      this.bgmAudio.currentTime = 0;
+      this.bgmAudio.play().catch(e => console.log('BGM Play pending user interaction:', e));
+    }
   }
 
   updateHpUI() {
     const hp = this.physics.health;
-    if (this.hpValEl) this.hpValEl.textContent = `${hp}%`;
-    if (this.hpFillEl) {
-      this.hpFillEl.style.width = `${hp}%`;
+    if (this.hpValEl) {
+      this.hpValEl.textContent = `${hp}%`;
       if (hp > 50) {
-        this.hpFillEl.style.background = 'linear-gradient(90deg, #2ed573, #7bed9f)';
-        if (this.hpValEl) this.hpValEl.style.color = '#2ed573';
+        this.hpValEl.style.color = '#2ed573';
       } else if (hp > 25) {
-        this.hpFillEl.style.background = 'linear-gradient(90deg, #ffa502, #ffc048)';
-        if (this.hpValEl) this.hpValEl.style.color = '#ffa502';
+        this.hpValEl.style.color = '#ffa502';
       } else {
-        this.hpFillEl.style.background = 'linear-gradient(90deg, #ff4757, #ff6b81)';
-        if (this.hpValEl) this.hpValEl.style.color = '#ff4757';
+        this.hpValEl.style.color = '#ff4757';
       }
     }
   }
 
-  triggerDamageFeedback() {
+  spawnFloatingWorldDamage(amount = 2, worldPos = null) {
+    const container = document.getElementById('world-damage-container');
+    if (!container || !this.camera) return;
+
+    let targetPos;
+    if (worldPos && worldPos.x !== undefined) {
+      targetPos = new THREE.Vector3(
+        worldPos.x,
+        (worldPos.y !== undefined ? worldPos.y : 0.8) + 0.6,
+        worldPos.z
+      );
+    } else if (this.physics && this.physics.worldPosition) {
+      targetPos = new THREE.Vector3(
+        this.physics.worldPosition.x,
+        this.physics.worldPosition.y + 1.4,
+        this.physics.worldPosition.z
+      );
+    } else {
+      return;
+    }
+
+    // Project 3D world position into 2D camera viewport coordinates
+    const vec = targetPos.clone();
+    vec.project(this.camera);
+
+    // Skip if point is behind the camera lens
+    if (vec.z > 1.0) return;
+
+    const screenX = (vec.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-vec.y * 0.5 + 0.5) * window.innerHeight;
+
+    const el = document.createElement('div');
+    el.className = 'floating-world-damage';
+    el.textContent = `-${amount}`;
+    el.style.left = `${screenX}px`;
+    el.style.top = `${screenY}px`;
+
+    container.appendChild(el);
+
+    setTimeout(() => {
+      if (el && el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    }, 950);
+  }
+
+  triggerDamageFeedback(damageAmount = 2, worldPos = null) {
     this.screenShake = 0.45;
     document.body.classList.add('damage-flash');
     setTimeout(() => {
       document.body.classList.remove('damage-flash');
     }, 400);
     this.updateHpUI();
+    this.spawnFloatingWorldDamage(damageAmount, worldPos);
   }
 
   gameOver(customReason = null) {
@@ -884,7 +952,10 @@ class InfiniteLakeGame {
       }
 
       const pPos = this.physics.worldPosition;
-      this.chunkManager.update(pPos.z);
+      this.chunkManager.update(pPos.z, delta);
+      if (this.rockManager) {
+        this.rockManager.update(this.physics, delta);
+      }
 
       // Update Dynamic Weather System
       if (this.weatherManager) {
@@ -913,12 +984,12 @@ class InfiniteLakeGame {
 
       // Torii Gate Collisions
       if (this.toriiGateManager) {
-        this.toriiGateManager.update(pPos.z);
+        this.toriiGateManager.update(pPos.z, delta);
         const gateCollision = this.toriiGateManager.checkPillarCollision(pPos);
         if (gateCollision.collided) {
           const hit = this.physics.handleCollision(gateCollision.bounceDir, gateCollision.penetration);
           if (hit) {
-            this.triggerDamageFeedback();
+            this.triggerDamageFeedback(2, hit.impactPos || null);
             if (this.isMultiplayer) {
               this.networkManager.sendCollision(2, this.physics.health, gateCollision.bounceDir, gateCollision.penetration, this.physics.speed);
             }
@@ -936,7 +1007,7 @@ class InfiniteLakeGame {
         if (swordCollision.collided) {
           const hit = this.physics.handleCollision(swordCollision.bounceDir, swordCollision.penetration);
           if (hit) {
-            this.triggerDamageFeedback();
+            this.triggerDamageFeedback(2, hit.impactPos || null);
             if (this.isMultiplayer) {
               this.networkManager.sendCollision(2, this.physics.health, swordCollision.bounceDir, swordCollision.penetration, this.physics.speed);
             }
@@ -952,7 +1023,7 @@ class InfiniteLakeGame {
       if (collision.collided) {
         const hit = this.physics.handleCollision(collision.bounceDir, collision.penetration);
         if (hit) {
-          this.triggerDamageFeedback();
+          this.triggerDamageFeedback(2, hit.impactPos || null);
           if (this.isMultiplayer) {
             this.networkManager.sendCollision(2, this.physics.health, collision.bounceDir, collision.penetration, this.physics.speed);
           }

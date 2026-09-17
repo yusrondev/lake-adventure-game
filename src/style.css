@@ -137,19 +137,40 @@ html, body {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
-/* Floating Lantern Action & Aim Controls (Fixed Bottom-Right Corner Placement) */
+/* Floating Lantern Action & 360 Degree Aim Controls */
 .lantern-hud-container {
-  position: fixed !important;
-  right: max(32px, env(safe-area-inset-right)) !important;
-  bottom: max(32px, env(safe-area-inset-bottom)) !important;
-  left: auto !important;
-  top: auto !important;
-  z-index: 35 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-end !important;
+  position: fixed;
+  z-index: 35;
+  display: flex;
+  flex-direction: column-reverse;
   gap: 12px;
-  pointer-events: auto !important;
+  pointer-events: auto;
+  touch-action: manipulation;
+  transition: left 0.3s ease, right 0.3s ease, bottom 0.3s ease, transform 0.3s ease;
+}
+
+/* Portrait Mode: Light is centered at the bottom */
+@media (orientation: portrait) {
+  .lantern-hud-container {
+    bottom: max(24px, env(safe-area-inset-bottom));
+    left: 50%;
+    right: auto;
+    top: auto;
+    transform: translateX(-50%);
+    align-items: center;
+  }
+}
+
+/* Landscape Mode: Light is positioned on the right */
+@media (orientation: landscape) {
+  .lantern-hud-container {
+    bottom: max(32px, env(safe-area-inset-bottom));
+    right: max(32px, env(safe-area-inset-right));
+    left: auto;
+    top: auto;
+    transform: none;
+    align-items: flex-end;
+  }
 }
 
 .lantern-btn {
@@ -173,6 +194,12 @@ html, body {
 
 .lantern-btn:active {
   transform: scale(0.92);
+}
+
+.lantern-btn.on {
+  background: rgba(245, 158, 11, 0.95);
+  border-color: #ffe066;
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.8), 0 6px 20px rgba(0, 0, 0, 0.6);
 }
 
 .lantern-aim-bar {
@@ -210,7 +237,7 @@ html, body {
   transition: all 0.2s ease;
 }
 
-.aim-btn.active {
+.aim-btn.active, .aim-btn:hover {
   background: rgba(0, 242, 254, 0.28);
   border-color: #00f2fe;
   color: #ffffff;
@@ -333,39 +360,72 @@ body.lightning-damage-flash::after {
 
 .hud-hp-pill {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 54px;
+  align-items: center;
+  position: relative;
 }
 
 .hp-row {
   display: flex;
   align-items: center;
-  gap: 3px;
-  line-height: 1;
+  gap: 4px;
+  position: relative;
 }
 
 .hp-text {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--success);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #2ed573;
+  letter-spacing: 0.5px;
+  transition: color 0.3s ease;
 }
 
-.hp-bar-container {
-  width: 100%;
-  height: 4px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 4px;
+/* 3D World Space Floating Damage Container & Elements */
+#world-damage-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
   overflow: hidden;
 }
 
-.hp-bar-fill {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, #2ed573, #7bed9f);
-  border-radius: 4px;
-  transition: width 0.25s ease-out;
+.floating-world-damage {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'Outfit', 'JetBrains Mono', sans-serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  color: #ff1e3c;
+  text-shadow:
+    0 0 16px rgba(255, 30, 60, 0.95),
+    0 0 32px rgba(255, 0, 0, 0.65),
+    0 3px 6px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+  animation: floatUpWorld 0.95s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  white-space: nowrap;
+  letter-spacing: -1px;
+}
+
+@keyframes floatUpWorld {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.4);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.45);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -120%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -190%) scale(0.8);
+  }
 }
 
 .hud-divider {
@@ -431,101 +491,7 @@ body.lightning-damage-flash::after {
   pointer-events: none;
 }
 
-/* Floating Lantern Action & 360 Degree Aim Controls */
-.lantern-hud-container {
-  position: absolute;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 500;
-  pointer-events: auto;
-  touch-action: manipulation;
-}
 
-.lantern-btn {
-  background: rgba(245, 158, 11, 0.08);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.22);
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  font-size: 1.25rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  opacity: 0.7;
-  z-index: 501;
-  transition: all 0.2s ease-out;
-}
-
-.lantern-btn:hover, .lantern-btn:active {
-  transform: scale(1.08);
-  opacity: 1.0;
-  background: rgba(245, 158, 11, 0.18);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
-}
-
-.lantern-btn.on {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: #f87171;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
-}
-
-.lantern-aim-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(7, 13, 25, 0.28);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  padding: 4px 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  touch-action: manipulation;
-  z-index: 501;
-}
-
-.aim-btn {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(224, 234, 245, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  font-size: 1.05rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  opacity: 0.7;
-  transition: all 0.15s ease;
-}
-
-.aim-btn:hover, .aim-btn.active {
-  opacity: 1.0;
-  background: rgba(0, 242, 254, 0.12);
-  border-color: rgba(0, 242, 254, 0.35);
-  color: var(--primary);
-  box-shadow: 0 0 8px var(--primary-glow);
-}
 
 .hidden {
   display: none !important;

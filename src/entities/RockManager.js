@@ -178,10 +178,18 @@ export class RockManager {
     if (!this.rockModel) return null;
     const instance = this.rockModel.clone(true);
 
+    instance.userData.opacity = 0.0;
+    instance.userData.isFadingIn = true;
+
     instance.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        if (child.material) {
+          child.material = child.material.clone();
+          child.material.transparent = true;
+          child.material.opacity = 0.0;
+        }
       }
     });
 
@@ -192,16 +200,37 @@ export class RockManager {
     const rocks = this.activeSegmentRocks.get(segmentIndex);
     if (rocks) {
       rocks.forEach((r) => {
-        this.scene.remove(r.mesh);
-        r.mesh.traverse((child) => {
-          if (child.geometry) child.geometry.dispose();
-        });
+        if (r.mesh) {
+          this.scene.remove(r.mesh);
+        }
       });
       this.activeSegmentRocks.delete(segmentIndex);
     }
   }
 
-  update(physics) {
+  update(physics, delta = 0.016) {
+    // Smooth Rock Fade-In
+    for (const rocks of this.activeSegmentRocks.values()) {
+      for (const r of rocks) {
+        if (r.mesh && r.mesh.userData.isFadingIn) {
+          let op = (r.mesh.userData.opacity || 0.0) + delta * 1.4;
+          if (op >= 1.0) {
+            op = 1.0;
+            r.mesh.userData.isFadingIn = false;
+          }
+          r.mesh.userData.opacity = op;
+          r.mesh.traverse((child) => {
+            if (child.isMesh && child.material) {
+              child.material.opacity = op;
+              if (op >= 1.0) {
+                child.material.transparent = false;
+              }
+            }
+          });
+        }
+      }
+    }
+
     if (!physics || !physics.boat) return;
 
     const boatPos = physics.worldPosition;
@@ -289,15 +318,19 @@ export class RockManager {
             physics.boat.triggerImpactDust(rock.x, 0.4, rock.z, normX, normZ);
           }
 
-          // 3. DAMAGE & FEEDBACK (-2 HP reduction on rock collision)
+          // 3. DAMAGE & FEEDBACK (0 damage if speed is under 50 km/h)
           if (physics.invulnerableTimer <= 0) {
-            physics.health = Math.max(0, physics.health - 2);
             physics.invulnerableTimer = 0.5;
+            const speedKmH = Math.abs(physics.speed) * 3.6;
 
-            if (this.game) {
-              this.game.triggerDamageFeedback();
-              if (physics.health <= 0) {
-                this.game.gameOver('Perahu Anda hancur menabrak bebatuan.');
+            if (speedKmH >= 50.0) {
+              physics.health = Math.max(0, physics.health - 2);
+
+              if (this.game) {
+                this.game.triggerDamageFeedback(2, { x: rock.x, y: 0.8, z: rock.z });
+                if (physics.health <= 0) {
+                  this.game.gameOver('Perahu Anda hancur menabrak bebatuan.');
+                }
               }
             }
           }
