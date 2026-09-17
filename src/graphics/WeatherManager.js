@@ -269,12 +269,12 @@ export class WeatherManager {
       isBoatHit: isBoatHit
     });
 
-    // Light flash
-    this.lightningFlashTimer = 0.22;
-    this.lightningFlashIntensity = isBoatHit ? 3.8 : 1.8;
+    // Light flash - subtle atmospheric illumination without blinding white screen flash
+    this.lightningFlashTimer = 0.10;
+    this.lightningFlashIntensity = isBoatHit ? 0.45 : 0.20;
     this.lightningLight.intensity = Math.max(this.lightningLight.intensity, this.lightningFlashIntensity);
     this.lightningPointLight.position.set(targetX, Math.max(2.0, targetY + 3.0), targetZ);
-    this.lightningPointLight.intensity = Math.max(this.lightningPointLight.intensity, isBoatHit ? 14.0 : 5.0);
+    this.lightningPointLight.intensity = Math.max(this.lightningPointLight.intensity, isBoatHit ? 4.0 : 1.5);
 
     // Play synthesized thunder audio
     this.playThunderSound(isBoatHit);
@@ -415,20 +415,15 @@ export class WeatherManager {
     }
 
     // Light flash & subtle camera shake
-    this.lightningFlashTimer = 0.20;
-    this.lightningFlashIntensity = 2.8;
-    this.lightningLight.intensity = Math.max(this.lightningLight.intensity, 2.8);
+    this.lightningFlashTimer = 0.10;
+    this.lightningFlashIntensity = 0.25;
+    this.lightningLight.intensity = Math.max(this.lightningLight.intensity, 0.25);
     this.lightningPointLight.position.set(targetX, Math.max(10.0, targetY + 15.0), targetZ);
-    this.lightningPointLight.intensity = 18.0;
+    this.lightningPointLight.intensity = 3.0;
 
     if (this.game) {
-      this.game.screenShake = 0.55;
+      this.game.screenShake = 0.35;
     }
-
-    document.body.classList.add('sword-lightning-flash');
-    setTimeout(() => {
-      document.body.classList.remove('sword-lightning-flash');
-    }, 220);
 
     // Play synthesized thunder sound effect
     this.playThunderSound(true);
@@ -753,8 +748,8 @@ export class WeatherManager {
       this.nextDistantLightningTimer -= delta;
       if (this.nextDistantLightningTimer <= 0) {
         this.triggerLightningStrike(playerPos, false);
-        // Random short interval between 0.8s and 2.2s for rich active storm visuals
-        this.nextDistantLightningTimer = 0.8 + Math.random() * 1.4;
+        // Interval between distant lightning (6.0s to 12.0s) to keep view comfortable and non-intrusive
+        this.nextDistantLightningTimer = 6.0 + Math.random() * 6.0;
       }
     }
 

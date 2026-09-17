@@ -74,117 +74,28 @@ export class SwordRainManager {
   }
 
   spawnRipple(centerX, centerZ) {
-    const r = this.ripples.find(item => !item.active);
-    if (!r) return;
-
-    r.active = true;
-    r.life = 0;
-    r.mesh.position.set(centerX, 0.1, centerZ);
-    r.mesh.scale.set(1, 1, 1);
-    r.mesh.visible = true;
+    // Disabled as requested (no white lake ripple effect when sword lodges or emerges)
+    return;
   }
 
   updateRipples(delta) {
-    for (const r of this.ripples) {
-      if (r.active) {
-        r.life += delta;
-        const progress = r.life / r.maxLife;
-
-        if (progress >= 1.0) {
-          r.active = false;
-          r.mesh.visible = false;
-        } else {
-          const scale = 1 + (r.scaleSpeed * r.life);
-          r.mesh.scale.set(scale, scale, scale);
-          r.mesh.material.opacity = (1.0 - progress) * 0.45;
-        }
-      }
-    }
+    // No-op
   }
 
   // --- Water Splash Particle System for Sword Emergence ---
   initWaterSplashSystem() {
-    this.splashPoolCount = 45;
+    this.splashPoolCount = 0;
     this.splashParticles = [];
     this.splashGroup = new THREE.Group();
-    this.splashGroup.renderOrder = 999;
-
-    const splashGeo = new THREE.SphereGeometry(0.25, 6, 6);
-    const splashMat = new THREE.MeshBasicMaterial({
-      color: 0xe0f2fe,
-      transparent: true,
-      opacity: 0.0,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    });
-
-    for (let i = 0; i < this.splashPoolCount; i++) {
-      const mesh = new THREE.Mesh(splashGeo, splashMat);
-      mesh.visible = false;
-      this.splashGroup.add(mesh);
-      this.splashParticles.push({
-        mesh: mesh,
-        active: false,
-        life: 0,
-        maxLife: 0.4 + Math.random() * 0.35,
-        vx: 0,
-        vy: 0,
-        vz: 0
-      });
-    }
-
-    this.scene.add(this.splashGroup);
   }
 
   spawnWaterSplash(centerX, centerZ) {
-    // Spawn 2-4 droplets around the active titan sword at water surface level (Y = 0.1)
-    const count = 2 + Math.floor(Math.random() * 3);
-    for (let k = 0; k < count; k++) {
-      const p = this.splashParticles.find(item => !item.active);
-      if (!p) break;
-
-      p.active = true;
-      p.life = 0;
-      p.maxLife = 0.35 + Math.random() * 0.35;
-
-      const side = Math.random() < 0.5 ? 1 : -1;
-      const offsetX = (side * (1.2 + Math.random() * 2.8));
-      const offsetZ = (Math.random() - 0.5) * 3.5;
-
-      p.mesh.position.set(centerX + offsetX, 0.15, centerZ + offsetZ);
-      p.mesh.visible = true;
-
-      p.vx = (offsetX * 1.8) + (Math.random() - 0.5) * 2.0;
-      p.vy = 4.5 + Math.random() * 6.5;
-      p.vz = (Math.random() - 0.5) * 4.0;
-
-      const scale = 0.4 + Math.random() * 0.8;
-      p.mesh.scale.set(scale, scale * 1.4, scale);
-      p.mesh.material.opacity = 0.85;
-    }
+    // Disabled as requested (no white splash particle effect when sword lodges or emerges)
+    return;
   }
 
   updateWaterSplash(delta) {
-    for (const p of this.splashParticles) {
-      if (p.active) {
-        p.life += delta;
-        const progress = p.life / p.maxLife;
-
-        if (progress >= 1.0) {
-          p.active = false;
-          p.mesh.visible = false;
-        } else {
-          p.vy -= 18.0 * delta;
-          p.mesh.position.x += p.vx * delta;
-          p.mesh.position.y += p.vy * delta;
-          p.mesh.position.z += p.vz * delta;
-
-          p.mesh.material.opacity = (1.0 - progress) * 0.85;
-          const s = (0.4 + progress * 0.6);
-          p.mesh.scale.set(s, s * 1.2, s);
-        }
-      }
-    }
+    // No-op
   }
 
   reset() {

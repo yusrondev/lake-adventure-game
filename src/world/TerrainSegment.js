@@ -11,8 +11,7 @@ const sharedGeometries = {
   trunkUnit: new THREE.CylinderGeometry(0.35, 0.55, 3.5, 5),
   coneUnit1: new THREE.ConeGeometry(2.5, 3.8, 5),
   coneUnit2: new THREE.ConeGeometry(1.9, 3.2, 5),
-  coneUnit3: new THREE.ConeGeometry(1.3, 2.6, 5),
-  beaconUnit: new THREE.CylinderGeometry(0.7, 1.1, 6.5, 6)
+  coneUnit3: new THREE.ConeGeometry(1.3, 2.6, 5)
 };
 
 // Static Base Materials (Pre-configured as transparent for 0-recompile WebGL opacity fade-in)
@@ -25,7 +24,7 @@ const baseMaterials = {
     opacity: 1.0
   }),
   grass: new THREE.MeshStandardMaterial({
-    color: 0x388e3c,
+    color: 0x24422e, // Natural dark mossy green (subtle accent, not dominant)
     roughness: 0.85,
     metalness: 0.0,
     flatShading: true,
@@ -41,7 +40,7 @@ const baseMaterials = {
     opacity: 1.0
   }),
   earth: new THREE.MeshStandardMaterial({
-    color: 0x5d4037,
+    color: 0x37474f, // Slate dark rock (NO brown colors on cliffs)
     roughness: 0.90,
     metalness: 0.0,
     flatShading: true,
@@ -49,7 +48,7 @@ const baseMaterials = {
     opacity: 1.0
   }),
   trunk: new THREE.MeshStandardMaterial({
-    color: 0x3e2723,
+    color: 0x2e3b4e, // Slate trunk
     roughness: 0.85,
     flatShading: true,
     transparent: true,
@@ -67,15 +66,6 @@ const baseMaterials = {
     color: 0x2e7d32,
     roughness: 0.60,
     metalness: 0.05,
-    flatShading: true,
-    transparent: true,
-    opacity: 1.0
-  }),
-  beaconMat: new THREE.MeshStandardMaterial({
-    color: 0xffaa00,
-    emissive: 0xff5500,
-    emissiveIntensity: 0.8,
-    roughness: 0.3,
     flatShading: true,
     transparent: true,
     opacity: 1.0
@@ -100,8 +90,7 @@ export class TerrainSegment {
       earth: baseMaterials.earth.clone(),
       trunk: baseMaterials.trunk.clone(),
       pine1: baseMaterials.pine1.clone(),
-      pine2: baseMaterials.pine2.clone(),
-      beaconMat: baseMaterials.beaconMat.clone()
+      pine2: baseMaterials.pine2.clone()
     };
 
     this.opacity = 0.0;
@@ -153,10 +142,11 @@ export class TerrainSegment {
     for (let i = 0; i < cliffBouldersCount; i++) {
       const zPos = -this.length / 2 + (i / (cliffBouldersCount - 1)) * this.length + (Math.random() - 0.5) * 6;
 
-      // --- LEFT BANK ---
+      // --- LEFT BANK (Slate rock dominant, only 16% moss accent) ---
       const isToweringLeft = Math.random() < 0.40;
       const baseRadiusLeft = isToweringLeft ? (14.0 + Math.random() * 8.0) : (7.5 + Math.random() * 5.0);
-      const leftCliff = new THREE.Mesh(sharedGeometries.cliffUnit, (i % 2 === 0 ? this.materials.grass : this.materials.rock));
+      const leftMat = (i === 1 ? this.materials.grass : (i % 2 === 0 ? this.materials.rock : this.materials.earth));
+      const leftCliff = new THREE.Mesh(sharedGeometries.cliffUnit, leftMat);
 
       const scaleYLeft = isToweringLeft ? (1.8 + Math.random() * 1.6) : (0.95 + Math.random() * 0.7);
       const scaleXZLeft = 0.9 + Math.random() * 0.4;
@@ -171,10 +161,11 @@ export class TerrainSegment {
       if (!isToweringLeft) leftCliff.castShadow = true;
       this.group.add(leftCliff);
 
-      // --- RIGHT BANK ---
+      // --- RIGHT BANK (Slate rock dominant, only 16% moss accent) ---
       const isToweringRight = Math.random() < 0.40;
       const baseRadiusRight = isToweringRight ? (14.0 + Math.random() * 8.0) : (7.5 + Math.random() * 5.0);
-      const rightCliff = new THREE.Mesh(sharedGeometries.cliffUnit, (i % 2 === 1 ? this.materials.grass : this.materials.earth));
+      const rightMat = (i === 4 ? this.materials.grass : (i % 2 === 1 ? this.materials.rock : this.materials.earth));
+      const rightCliff = new THREE.Mesh(sharedGeometries.cliffUnit, rightMat);
 
       const scaleYRight = isToweringRight ? (1.8 + Math.random() * 1.6) : (0.95 + Math.random() * 0.7);
       const scaleXZRight = 0.9 + Math.random() * 0.4;
@@ -231,7 +222,8 @@ export class TerrainSegment {
     }
 
     // 4. DRAMATIC CENTRAL CLIFF ISLAND (FORK INTERSECTION)
-    if (isFork && this.forkState.islandHalfWidth > 0.5) {
+    const isForkActive = this.forkState && this.forkState.isFork;
+    if (isForkActive && this.forkState.islandHalfWidth > 0.5) {
       this.buildCentralCliffIsland(this.forkState.islandHalfWidth);
     }
 
@@ -243,10 +235,10 @@ export class TerrainSegment {
     for (let i = 0; i < boulderCount; i++) {
       const zPos = -this.length / 2 + (i / (boulderCount - 1)) * this.length + (Math.random() - 0.5) * 4;
       
-      // Central mountain rock unit
+      // Central mountain rock unit (Slate rock dominant, only 12.5% moss accent)
       const isTowering = Math.random() < 0.65;
       const baseRad = isTowering ? (halfW * 0.85 + Math.random() * 3.0) : (halfW * 0.60 + Math.random() * 2.0);
-      const mat = (i % 3 === 0) ? this.materials.grass : ((i % 3 === 1) ? this.materials.rock : this.materials.earth);
+      const mat = (i === 2) ? this.materials.grass : ((i % 2 === 0) ? this.materials.rock : this.materials.earth);
       
       const centerCliff = new THREE.Mesh(sharedGeometries.cliffUnit, mat);
       const scaleY = isTowering ? (2.2 + Math.random() * 1.8) : (1.2 + Math.random() * 0.8);
@@ -271,19 +263,6 @@ export class TerrainSegment {
       sideRock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
       sideRock.castShadow = true;
       this.group.add(sideRock);
-    }
-
-    // Glowing Stone Beacon Pillars marking Left/Right channels at fork entry
-    if (this.forkState.forkType === 'approach' && this.forkState.t > 0.6) {
-      const beaconL = new THREE.Mesh(sharedGeometries.beaconUnit, this.materials.beaconMat);
-      beaconL.position.set(-halfW - 2.5, 3.2, 0);
-      beaconL.rotation.set(0.1, 0.2, -0.15);
-      this.group.add(beaconL);
-
-      const beaconR = new THREE.Mesh(sharedGeometries.beaconUnit, this.materials.beaconMat);
-      beaconR.position.set(halfW + 2.5, 3.2, 0);
-      beaconR.rotation.set(0.1, -0.2, 0.15);
-      this.group.add(beaconR);
     }
   }
 
