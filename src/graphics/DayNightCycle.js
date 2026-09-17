@@ -56,9 +56,9 @@ export class DayNightCycle {
       { time: 0.0,  sky: 0x060c1c, fog: 0x060c1c, fogDensity: 0.007, light: 0x3b82f6, lightIntensity: 0.35, hemiSky: 0x1e293b, hemiGround: 0x0f172a, hemiIntensity: 0.45, ambient: 0x1e293b, ambientIntensity: 0.30, starOpacity: 0.95, sunMat: 0xf59e0b, halo: 0xd97706, glareOpacity: 0.0,  sunScale: 0.5 },
       { time: 4.5,  sky: 0x111c3a, fog: 0x152244, fogDensity: 0.007, light: 0x60a5fa, lightIntensity: 0.45, hemiSky: 0x334155, hemiGround: 0x1e293b, hemiIntensity: 0.55, ambient: 0x334155, ambientIntensity: 0.40, starOpacity: 0.70, sunMat: 0xfbbf24, halo: 0xd97706, glareOpacity: 0.15, sunScale: 0.7 },
       { time: 5.5,  sky: 0x4a6b8f, fog: 0xfde68a, fogDensity: 0.006, light: 0xfef08a, lightIntensity: 0.85, hemiSky: 0x93c5fd, hemiGround: 0x475569, hemiIntensity: 0.90, ambient: 0xfde047, ambientIntensity: 0.55, starOpacity: 0.00, sunMat: 0xfef08a, halo: 0xfbbf24, glareOpacity: 0.45, sunScale: 0.9 }, // Golden Dawn / Sunrise
-      { time: 6.8,  sky: 0x60a5fa, fog: 0xdbeafe, fogDensity: 0.005, light: 0xfffaed, lightIntensity: 1.35, hemiSky: 0xffffff, hemiGround: 0x8592a6, hemiIntensity: 1.25, ambient: 0xffffff, ambientIntensity: 0.65, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xfde047, glareOpacity: 0.75, sunScale: 1.2 },  // Pagi Emas
-      { time: 12.0, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.004, light: 0xffffff, lightIntensity: 1.50, hemiSky: 0xffffff, hemiGround: 0x94a3b8, hemiIntensity: 1.35, ambient: 0xffffff, ambientIntensity: 0.70, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xffea00, glareOpacity: 1.00, sunScale: 1.45 }, // Siang Cerah
-      { time: 15.5, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.005, light: 0xfef08a, lightIntensity: 1.40, hemiSky: 0xffffff, hemiGround: 0x8592a6, hemiIntensity: 1.30, ambient: 0xffffff, ambientIntensity: 0.68, starOpacity: 0.00, sunMat: 0xfffaed, halo: 0xfbbf24, glareOpacity: 0.80, sunScale: 1.25 }, // Sore
+      { time: 6.8,  sky: 0x60a5fa, fog: 0xdbeafe, fogDensity: 0.005, light: 0xfffaed, lightIntensity: 1.15, hemiSky: 0x93c5fd, hemiGround: 0x334155, hemiIntensity: 0.90, ambient: 0xcbd5e1, ambientIntensity: 0.45, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xfde047, glareOpacity: 0.75, sunScale: 1.2 },  // Pagi Emas
+      { time: 12.0, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.004, light: 0xffffff, lightIntensity: 1.25, hemiSky: 0x93c5fd, hemiGround: 0x334155, hemiIntensity: 0.95, ambient: 0xcbd5e1, ambientIntensity: 0.45, starOpacity: 0.00, sunMat: 0xffffff, halo: 0xffea00, glareOpacity: 1.00, sunScale: 1.45 }, // Siang Cerah
+      { time: 15.5, sky: 0x38bdf8, fog: 0xbae6fd, fogDensity: 0.005, light: 0xfef08a, lightIntensity: 1.20, hemiSky: 0x93c5fd, hemiGround: 0x334155, hemiIntensity: 0.90, ambient: 0xcbd5e1, ambientIntensity: 0.45, starOpacity: 0.00, sunMat: 0xfffaed, halo: 0xfbbf24, glareOpacity: 0.80, sunScale: 1.25 }, // Sore
       { time: 17.5, sky: 0xf97316, fog: 0xf59e0b, fogDensity: 0.006, light: 0xfbbf24, lightIntensity: 1.10, hemiSky: 0xfed7aa, hemiGround: 0x78350f, hemiIntensity: 1.05, ambient: 0xfdba74, ambientIntensity: 0.60, starOpacity: 0.00, sunMat: 0xf97316, halo: 0xeab308, glareOpacity: 0.70, sunScale: 1.20 }, // Sunset Golden Amber
       { time: 18.8, sky: 0xc2410c, fog: 0xea580c, fogDensity: 0.0065, light: 0xf97316, lightIntensity: 0.80, hemiSky: 0xf97316, hemiGround: 0x451a03, hemiIntensity: 0.80, ambient: 0xf97316, ambientIntensity: 0.50, starOpacity: 0.00, sunMat: 0xef4444, halo: 0xf97316, glareOpacity: 0.50, sunScale: 1.35 }, // Deep Crimson Sunset Horizon (Sinking Sun)
       { time: 19.8, sky: 0x311042, fog: 0x2e1065, fogDensity: 0.007, light: 0x6366f1, lightIntensity: 0.50, hemiSky: 0x4338ca, hemiGround: 0x1e1b4b, hemiIntensity: 0.55, ambient: 0x4338ca, ambientIntensity: 0.40, starOpacity: 0.20, sunMat: 0xd97706, halo: 0x9a3412, glareOpacity: 0.15, sunScale: 1.00 }, // Twilight Dusk
@@ -338,19 +338,18 @@ export class DayNightCycle {
     const sunZ = playerPos.z - sunDistance;
 
     this.sunGroup.position.set(sunX, sunY, sunZ);
-    // Dynamic Sunlight for directional shadows positioned behind/above player camera shining down-river
+    // Dynamic Sunlight for directional shadows positioned at a side angle to cast cross-canyon shadows
     this.sunLight.position.set(
-      playerPos.x + Math.sin(sunAngle * 0.25) * 50.0 + 25.0,
-      Math.max(45.0, sunY * 0.45 + 35.0),
-      playerPos.z + 90.0 // Anchored behind player camera at +Z shining down-river toward -Z
+      playerPos.x + 65.0, // Side offset for rich canyon shadows
+      Math.max(55.0, sunY * 0.45 + 35.0),
+      playerPos.z + 25.0
     );
     if (this.sunLight.target) {
-      this.sunLight.target.position.set(playerPos.x, playerPos.y + 2.0, playerPos.z - 80.0);
+      this.sunLight.target.position.set(playerPos.x, playerPos.y, playerPos.z - 40.0);
     }
 
-    // Shadow Off during daytime (5.5h to 18.5h)
-    const isDay = (this.timeOfDay >= 5.5 && this.timeOfDay <= 18.5);
-    this.sunLight.castShadow = !isDay;
+    // Shadow enabled continuously for sharp low-poly depth & canyon shadow maps
+    this.sunLight.castShadow = true;
 
     // Smooth horizon fade as sun dips deep below horizon (-55m)
     const horizonFade = THREE.MathUtils.clamp((sunY + 60.0) / 110.0, 0.0, 1.0);

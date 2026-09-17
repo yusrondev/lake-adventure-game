@@ -247,26 +247,28 @@ class InfiniteLakeGame {
     this.container.appendChild(this.renderer.domElement);
 
     // 1. Hemisphere Light (Sky illumination & Ground fill)
-    this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x8099b0, 1.25);
+    this.hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x334155, 0.90);
     this.scene.add(this.hemiLight);
 
-    // 2. Global Ambient Light (360 uniform fill light for canyon walls, rocks & giant swords)
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    // 2. Global Ambient Light (Soft fill light for canyon walls & rocks)
+    this.ambientLight = new THREE.AmbientLight(0xcbd5e1, 0.40);
     this.scene.add(this.ambientLight);
 
     // 3. Directional Sunlight
-    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.5);
-    this.sunLight.position.set(40, 60, 20);
+    this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.20);
+    this.sunLight.position.set(65, 70, 25);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
-    this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 200;
-    this.sunLight.shadow.camera.left = -30;
-    this.sunLight.shadow.camera.right = 30;
-    this.sunLight.shadow.camera.top = 30;
-    this.sunLight.shadow.camera.bottom = -30;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.camera.near = 1.0;
+    this.sunLight.shadow.camera.far = 320;
+    this.sunLight.shadow.camera.left = -75;
+    this.sunLight.shadow.camera.right = 75;
+    this.sunLight.shadow.camera.top = 85;
+    this.sunLight.shadow.camera.bottom = -65;
+    this.sunLight.shadow.bias = -0.0005;
     this.scene.add(this.sunLight);
+    this.scene.add(this.sunLight.target);
   }
 
   initEntities() {
