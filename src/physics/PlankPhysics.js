@@ -44,6 +44,41 @@ export class PlankPhysics {
     this.invulnerableTimer = 0;
     this.collisionSlowTimer = 0;
     this.stuckTimer = 0;
+
+    // Collision Impact Inertia Lean & Position Shift
+    this.impactLeanX = 0;
+    this.impactLeanRoll = 0;
+    this.impactLeanTimer = 0;
+  }
+
+  triggerImpactLean(bounceDirection, forceAmount = 1.0) {
+    const speedKmH = Math.abs(this.speed) * 3.6;
+    // Player character impact shift ONLY applies when boat speed is 80 km/h or above!
+    if (speedKmH < 80.0) return;
+
+    // ONLY 1x trigger per collision hit (0.6s cooldown)
+    if (this.impactLeanTimer > 0) return;
+    this.impactLeanTimer = 0.6;
+
+    // bounceDirection > 0 => hit obstacle on LEFT => boat pushed right => character REAL SHIFTS RIGHT (+X)
+    // bounceDirection < 0 => hit obstacle on RIGHT => boat pushed left => character REAL SHIFTS LEFT (-X)
+    const dir = Math.sign(bounceDirection) || 1;
+
+    // 1. Subtle stumble roll/tilt visual animation
+    this.impactLeanX = dir * 0.22;
+    this.impactLeanRoll = dir * 0.16;
+
+    // 2. REAL PHYSICAL POSITION SHIFT across the boat deck floor (subtle ~0.25m shift)
+    const realShiftX = dir * (0.20 + Math.min(1.0, forceAmount) * 0.10);
+
+    // Apply real shift to both target and active local deck coordinates
+    this.targetPlayerLocalPos.x += realShiftX;
+    this.playerLocalPos.x += realShiftX;
+
+    // Dynamically clamp player position within the 3D boat hull contour
+    const activeMaxX = this.boat.getHullHalfWidthAtZ(this.targetPlayerLocalPos.y);
+    this.targetPlayerLocalPos.x = THREE.MathUtils.clamp(this.targetPlayerLocalPos.x, -activeMaxX, activeMaxX);
+    this.playerLocalPos.x = THREE.MathUtils.clamp(this.playerLocalPos.x, -activeMaxX, activeMaxX);
   }
 
   applyJoystickVector(normX, normY, delta) {
@@ -81,6 +116,9 @@ export class PlankPhysics {
   updatePhysics(delta, remotePlayers = null) {
     if (this.invulnerableTimer > 0) {
       this.invulnerableTimer -= delta;
+    }
+    if (this.impactLeanTimer > 0) {
+      this.impactLeanTimer -= delta;
     }
 
     // 1. SMOOTH PLAYER POSITION ON BOAT DECK (Player remains at last position!)
@@ -229,14 +267,21 @@ export class PlankPhysics {
       this.stuckTimer = 0;
     }
 
+    // Damped physical recoil for impact lean (Stumble left on right hit, stumble right on left hit)
+    const leanDamp = 1.0 - Math.exp(-7.0 * delta);
+    this.impactLeanX += (0 - this.impactLeanX) * leanDamp;
+    this.impactLeanRoll += (0 - this.impactLeanRoll) * leanDamp;
+
     // 7. THREE.JS MESH UPDATES (Strictly 0 pitch, 0 heading yaw serong, ONLY left/right roll tilt)
     this.heading = 0;
     this.pitch = 0;
     this.boat.mesh.position.copy(this.worldPosition);
     this.boat.mesh.rotation.set(0, 0, this.roll, 'YXZ');
 
-    // Humanoid is child of boat: set local position flush on deck floor (deckY)
-    this.humanoid.mesh.position.set(this.playerLocalPos.x, this.boat.deckY || 0.12, this.playerLocalPos.y);
+    // Humanoid is child of boat: set local position flush on deck floor with impact stumble inertia!
+    const charPosX = this.playerLocalPos.x + this.impactLeanX;
+    this.humanoid.mesh.position.set(charPosX, this.boat.deckY || 0.12, this.playerLocalPos.y);
+    this.humanoid.mesh.rotation.z = this.impactLeanRoll;
     this.humanoid.updateAnimation(this.speed, this.playerLocalPos, this.targetPlayerLocalPos, delta);
 
     // Update Splash & Wake Particles + Wood Impact Dust + White Blink + Lantern Sway Physics & Water Lighting Sync
@@ -295,6 +340,9 @@ export class PlankPhysics {
         didDamage = true;
       }
     }
+
+    // Trigger character impact stumble inertia & REAL physical position shift on boat deck!
+    this.triggerImpactLean(bounceDirection, penetration || 1.0);
 
     // Trigger wood dust & splinter explosion at collision impact point
     const impactX = this.worldPosition.x - bounceDirection * 1.6;

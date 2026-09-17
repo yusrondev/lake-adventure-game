@@ -14,7 +14,7 @@ export class ToriiGateManager {
     this.gateTemplate = null;
     this.gateBaseBox = new THREE.Box3();
     this.gateBaseSize = new THREE.Vector3();
-    this.gateScale = 2.30; // Spans channel from x = -19.5m to +19.5m
+    this.gateScale = 2.25; // Scaled to fit pillars flush against left/right cliff walls (0 gap)
 
     // Pre-warmed Zero-Allocation Object Pool (2 permanent gate assemblies in scene graph)
     this.gatePool = [];
@@ -79,15 +79,15 @@ export class ToriiGateManager {
 
       // Pre-instantiated Fixed Torii Lanterns (Never added/removed dynamically from scene)
       const lanternLeft = new THREE.PointLight(0xff7733, 2.5, 35.0, 1.2);
-      lanternLeft.position.set(-19.0, 4.5, 0);
+      lanternLeft.position.set(-18.8, 4.8, 0);
       gateGroup.add(lanternLeft);
 
       const lanternRight = new THREE.PointLight(0xff7733, 2.5, 35.0, 1.2);
-      lanternRight.position.set(19.0, 4.5, 0);
+      lanternRight.position.set(18.8, 4.8, 0);
       gateGroup.add(lanternRight);
 
       const centerGlow = new THREE.PointLight(0xffaa44, 1.8, 45.0, 1.5);
-      centerGlow.position.set(0, 18.0, 0);
+      centerGlow.position.set(0, 16.0, 0);
       gateGroup.add(centerGlow);
 
       // Pre-add to scene graph in invisible, off-screen park position
@@ -103,8 +103,8 @@ export class ToriiGateManager {
         inUse: false,
         zPos: 0,
         gateIndex: 0,
-        leftPillarX: -19.2,
-        rightPillarX: 19.2,
+        leftPillarX: -18.8,
+        rightPillarX: 18.8,
         pillarRadius: 2.2,
         passed: false
       });
@@ -133,22 +133,9 @@ export class ToriiGateManager {
     available.zPos = zPos;
     available.gateIndex = gateIndex;
     available.passed = false;
-    available.opacity = 0.0;
-    available.isFadingIn = true;
-
-    // Clone materials for independent smooth fade-in
-    available.group.traverse((child) => {
-      if (child.isMesh && child.material) {
-        if (!child.userData.originalMat) {
-          child.userData.originalMat = child.material;
-        }
-        child.material = child.userData.originalMat.clone();
-        child.material.transparent = true;
-        child.material.opacity = 0.0;
-      }
-    });
 
     // Instant zero-cost reposition and activation
+    available.group.scale.set(1, 1, 1);
     available.group.position.set(0, 0, zPos);
     available.group.visible = true;
 
@@ -182,26 +169,6 @@ export class ToriiGateManager {
       }
     }
 
-    // 2. Smooth Fade-In for active Torii Gates
-    for (const gate of this.activeGates.values()) {
-      if (gate.isFadingIn) {
-        gate.opacity += delta * 1.4; // Fades in over ~0.7 seconds
-        if (gate.opacity >= 1.0) {
-          gate.opacity = 1.0;
-          gate.isFadingIn = false;
-        }
-
-        gate.group.traverse((child) => {
-          if (child.isMesh && child.material) {
-            child.material.opacity = gate.opacity;
-            if (!gate.isFadingIn) {
-              child.material.transparent = false;
-            }
-          }
-        });
-      }
-    }
-
     // 3. Check gate passing and return out-of-range gates to pool (0ms cost)
     for (const [idx, gate] of this.activeGates.entries()) {
       if (idx < minGateIdx || idx > maxGateIdx) {
@@ -224,18 +191,17 @@ export class ToriiGateManager {
     for (const gate of this.activeGates.values()) {
       const dz = Math.abs(boatWorldPos.z - gate.zPos);
       if (dz < 8.0) { // Increased check distance for high speed
-        // Use precise rectangular bounding boxes for the Torii pillars based on lantern centers (±19.0)
-        // Torii bases are typically rectangular and quite thick.
-        const pillarWidthX = 3.8; // Total width in X
-        const pillarDepthZ = 4.5; // Total depth in Z
+        // Use precise rectangular bounding boxes for the Torii pillars based on lantern centers (±18.8)
+        const pillarWidthX = 4.2; // Total width in X
+        const pillarDepthZ = 5.0; // Total depth in Z
         
-        const leftMinX = -19.0 - (pillarWidthX / 2) - hullRadius;
-        const leftMaxX = -19.0 + (pillarWidthX / 2) + hullRadius;
+        const leftMinX = -18.8 - (pillarWidthX / 2) - hullRadius;
+        const leftMaxX = -18.8 + (pillarWidthX / 2) + hullRadius;
         const leftMinZ = gate.zPos - (pillarDepthZ / 2) - hullRadius;
         const leftMaxZ = gate.zPos + (pillarDepthZ / 2) + hullRadius;
 
-        const rightMinX = 19.0 - (pillarWidthX / 2) - hullRadius;
-        const rightMaxX = 19.0 + (pillarWidthX / 2) + hullRadius;
+        const rightMinX = 18.8 - (pillarWidthX / 2) - hullRadius;
+        const rightMaxX = 18.8 + (pillarWidthX / 2) + hullRadius;
         const rightMinZ = gate.zPos - (pillarDepthZ / 2) - hullRadius;
         const rightMaxZ = gate.zPos + (pillarDepthZ / 2) + hullRadius;
 

@@ -40,14 +40,11 @@ export class RockManager {
   }
 
   clearAllRocks() {
-    for (const [idx, rocks] of this.activeSegmentRocks.entries()) {
-      rocks.forEach((r) => {
-        if (r.mesh) {
-          this.scene.remove(r.mesh);
-          r.mesh.traverse((child) => {
-            if (child.geometry) child.geometry.dispose();
-          });
-        }
+    if (this.rockPool) {
+      this.rockPool.forEach(item => {
+        item.inUse = false;
+        item.mesh.visible = false;
+        item.mesh.position.set(0, -9999, 0);
       });
     }
     this.activeSegmentRocks.clear();
@@ -65,7 +62,6 @@ export class RockManager {
             child.material.roughness = 0.65;
             child.material.metalness = 0.15;
           }
-          child.material.needsUpdate = true;
         }
       }
     });
@@ -74,6 +70,25 @@ export class RockManager {
     box.getSize(this.baseExtents);
     box.getCenter(this.baseCenter);
     if (this.baseExtents.x === 0) this.baseExtents.set(2.5, 2.5, 2.5);
+
+    // Pre-warmed Object Pool of 25 Rock Instances (Pre-configured transparent for 0-recompile WebGL opacity fade-in)
+    this.rockPool = [];
+    this.poolSize = 25;
+    for (let i = 0; i < this.poolSize; i++) {
+      const instance = this.rockModel.clone(true);
+      instance.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material = child.material.clone();
+          child.material.transparent = true;
+          child.material.opacity = 0.0;
+        }
+      });
+      instance.visible = false;
+      instance.position.set(0, -9999, 0);
+      this.scene.add(instance);
+      this.rockPool.push({ mesh: instance, inUse: false });
+    }
+
     this.isLoaded = true;
 
     // Trigger rock generation for any active segments once GLTF asset load completes
@@ -195,6 +210,7 @@ export class RockManager {
         mesh: rockMesh,
         x: rockX,
         z: rockZ,
+        opacity: 0.0,
         effectiveWaterRadius: effectiveWaterRadius,
         maxWorldRadius: effectiveWaterRadius + 4.5
       });
@@ -206,25 +222,18 @@ export class RockManager {
   }
 
   createRockInstance() {
-    if (!this.rockModel) return null;
-    const instance = this.rockModel.clone(true);
+    if (!this.rockPool) return null;
+    const item = this.rockPool.find(r => !r.inUse);
+    if (!item) return null;
 
-    instance.userData.opacity = 0.0;
-    instance.userData.isFadingIn = true;
-
-    instance.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        if (child.material) {
-          child.material = child.material.clone();
-          child.material.transparent = true;
-          child.material.opacity = 0.0;
-        }
+    item.inUse = true;
+    item.mesh.visible = true;
+    item.mesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material.opacity = 0.0;
       }
     });
-
-    return instance;
+    return item.mesh;
   }
 
   onSegmentDestroyed(segmentIndex) {
@@ -232,7 +241,10 @@ export class RockManager {
     if (rocks) {
       rocks.forEach((r) => {
         if (r.mesh) {
-          this.scene.remove(r.mesh);
+          r.mesh.visible = false;
+          r.mesh.position.set(0, -9999, 0);
+          const poolItem = this.rockPool.find(item => item.mesh === r.mesh);
+          if (poolItem) poolItem.inUse = false;
         }
       });
       this.activeSegmentRocks.delete(segmentIndex);
@@ -240,22 +252,15 @@ export class RockManager {
   }
 
   update(physics, delta = 0.016) {
-    // Smooth Rock Fade-In
+    // Smooth visual opacity fade-in animation for newly spawned rocks
     for (const rocks of this.activeSegmentRocks.values()) {
-      for (const r of rocks) {
-        if (r.mesh && r.mesh.userData.isFadingIn) {
-          let op = (r.mesh.userData.opacity || 0.0) + delta * 1.4;
-          if (op >= 1.0) {
-            op = 1.0;
-            r.mesh.userData.isFadingIn = false;
-          }
-          r.mesh.userData.opacity = op;
-          r.mesh.traverse((child) => {
+      for (const rock of rocks) {
+        if (rock.opacity !== undefined && rock.opacity < 1.0) {
+          rock.opacity += delta * 1.8; // Smooth 0.55s opacity fade-in
+          if (rock.opacity >= 1.0) rock.opacity = 1.0;
+          rock.mesh.traverse((child) => {
             if (child.isMesh && child.material) {
-              child.material.opacity = op;
-              if (op >= 1.0) {
-                child.material.transparent = false;
-              }
+              child.material.opacity = rock.opacity;
             }
           });
         }
@@ -343,6 +348,11 @@ export class RockManager {
           const retainFactor = Math.abs(physics.speed) > 5.0 ? 0.75 : 0.50;
           physics.speed = physics.speed * retainFactor;
           physics.turnSpeed = normX * 0.8;
+
+          // Trigger character impact stumble inertia & REAL physical position shift on deck
+          if (physics.triggerImpactLean) {
+            physics.triggerImpactLean(normX, overlap || 1.0);
+          }
 
           // Trigger wood dust & splinter explosion at rock collision impact point
           if (physics.boat && physics.boat.triggerImpactDust) {

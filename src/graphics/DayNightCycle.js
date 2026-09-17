@@ -29,6 +29,7 @@ export class DayNightCycle {
     this.stormCloudColor = new THREE.Color(0x1e293b);
 
     this.weatherManager = null;
+    this.currentFogDensity = 0.0018;
 
     this.initCelestialOrbs();
     this.initStarfield();
@@ -331,6 +332,10 @@ export class DayNightCycle {
       this.sunLight.target.position.copy(playerPos);
     }
 
+    // Shadow Off during daytime (5.5h to 18.5h)
+    const isDay = (this.timeOfDay >= 5.5 && this.timeOfDay <= 18.5);
+    this.sunLight.castShadow = !isDay;
+
     // Smooth horizon fade as sun dips deep below horizon (-55m)
     const horizonFade = THREE.MathUtils.clamp((sunY + 60.0) / 110.0, 0.0, 1.0);
 
@@ -426,8 +431,7 @@ export class DayNightCycle {
     // Apply values to Three.js elements
     this.scene.background.copy(this.skyColorCurrent);
     if (this.scene.fog) {
-      this.scene.fog.color.copy(this.fogColorCurrent);
-      this.scene.fog.density = fogDensity * 0.38;
+      this.scene.fog = null;
     }
 
     this.sunLight.color.copy(this.sunLightColorCurrent);

@@ -58,7 +58,7 @@ export class SwordRainManager {
     });
 
     for (let i = 0; i < 6; i++) {
-      const mesh = new THREE.Mesh(rippleGeo, rippleMat.clone());
+      const mesh = new THREE.Mesh(rippleGeo, rippleMat);
       mesh.visible = false;
       this.rippleGroup.add(mesh);
       this.ripples.push({
@@ -119,7 +119,7 @@ export class SwordRainManager {
     });
 
     for (let i = 0; i < this.splashPoolCount; i++) {
-      const mesh = new THREE.Mesh(splashGeo, splashMat.clone());
+      const mesh = new THREE.Mesh(splashGeo, splashMat);
       mesh.visible = false;
       this.splashGroup.add(mesh);
       this.splashParticles.push({
@@ -191,6 +191,9 @@ export class SwordRainManager {
     this.processedMilestones.clear();
     this.isMilestoneActive = false;
     this.currentMilestoneIdx = 0;
+    if (this.game && this.game.waterSystem) {
+      this.game.waterSystem.setSwordWave(0, -9999, 0);
+    }
     for (const s of this.swords) {
       s.group.position.set(0, -9999, 0);
       s.group.visible = false;
@@ -273,7 +276,6 @@ export class SwordRainManager {
         child.castShadow = false;
         child.receiveShadow = false;
         if (child.material) {
-          child.material = child.material.clone();
           child.material.metalness = 0.35;
           child.material.roughness = 0.40;
           child.material.fog = false;
@@ -281,7 +283,6 @@ export class SwordRainManager {
             child.material.emissive.setHex(0x000000);
             child.material.emissiveIntensity = 0;
           }
-          child.material.needsUpdate = true;
         }
       }
     });
@@ -333,8 +334,6 @@ export class SwordRainManager {
     }
   }
 
-
-
   triggerMilestone(milestoneIdx, milestoneZ) {
     if (this.processedMilestones.has(milestoneIdx)) return;
 
@@ -356,19 +355,9 @@ export class SwordRainManager {
       sword.active = true;
       sword.halfWidthX = variant.halfWidthX;
       sword.halfDepthZ = variant.halfDepthZ;
-      sword.opacity = 0.0;
-      sword.isFadingIn = true;
       sword.hasStruckLightning = false;
 
       sword.mesh.rotation.set(variant.rotX, variant.rotY, variant.rotZ);
-
-      sword.group.traverse((child) => {
-        if (child.isMesh && child.material) {
-          child.material.transparent = true;
-          child.material.opacity = 0.0;
-        }
-      });
-
       sword.group.position.set(sword.x, sword.y, sword.z);
       sword.group.visible = true;
     }
@@ -421,34 +410,25 @@ export class SwordRainManager {
         activeObj.y = THREE.MathUtils.lerp(activeObj.startRiseY, activeObj.targetY, smoothProgress);
         activeObj.group.position.y = activeObj.y;
 
-        // When titan sword emerges 75% above lake water (smoothProgress >= 0.75), trigger lightning strike & white screen blink!
-        if (!activeObj.hasStruckLightning && smoothProgress >= 0.75) {
+        // When titan sword emerges 80% above lake water (smoothProgress >= 0.80), trigger lightning strike & white screen blink!
+        if (!activeObj.hasStruckLightning && smoothProgress >= 0.80) {
           activeObj.hasStruckLightning = true;
           this.triggerSwordLightningStrike(activeObj);
+        }
+
+        // Boost dramatic localized lake water wave swell around titan sword emergence
+        if (this.game && this.game.waterSystem) {
+          const waveFactor = Math.sin(smoothProgress * Math.PI);
+          this.game.waterSystem.setSwordWave(activeObj.x, activeObj.z, waveFactor * 0.85);
         }
 
         // Spawn dramatic water splash spray on left/right/front/back sides of titan sword as it breaks water surface
         if (smoothProgress < 0.98 && distToMilestone <= 800 && distToMilestone >= -50) {
           this.spawnWaterSplash(activeObj.x, activeObj.z);
-          // Spawn ripples occasionally
-          if (Math.random() < 0.06) {
+          // Spawn ripples frequently
+          if (Math.random() < 0.35) {
             this.spawnRipple(activeObj.x, activeObj.z);
           }
-        }
-
-        if (activeObj.isFadingIn) {
-          activeObj.opacity += delta * 3.0;
-          if (activeObj.opacity >= 1.0) {
-            activeObj.opacity = 1.0;
-            activeObj.isFadingIn = false;
-          }
-
-          activeObj.group.traverse((child) => {
-            if (child.isMesh && child.material) {
-              child.material.opacity = activeObj.opacity;
-              if (!activeObj.isFadingIn) child.material.transparent = false;
-            }
-          });
         }
       }
     }
@@ -458,6 +438,9 @@ export class SwordRainManager {
       if (this.isMilestoneActive) {
         this.processedMilestones.add(this.currentMilestoneIdx);
         this.isMilestoneActive = false;
+        if (this.game && this.game.waterSystem) {
+          this.game.waterSystem.setSwordWave(0, -9999, 0);
+        }
         for (const s of this.swords) {
           s.group.visible = false;
           s.group.position.set(0, -9999, 0);

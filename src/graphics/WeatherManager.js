@@ -285,58 +285,162 @@ export class WeatherManager {
     }
   }
 
-  triggerTitanSwordLightning(targetX, targetY, targetZ) {
-    // 1. Create double dramatic 3D lightning bolts hitting the sword from sky (Y = 135)
-    for (let b = 0; b < 2; b++) {
-      const offsetX = (b === 0) ? 0 : (Math.random() - 0.5) * 6.0;
-      const offsetZ = (b === 0) ? 0 : (Math.random() - 0.5) * 6.0;
-      const startPos = new THREE.Vector3(
-        targetX + (Math.random() - 0.5) * 22.0,
-        135.0 + Math.random() * 25.0,
-        targetZ + (Math.random() - 0.5) * 22.0
-      );
-      const endPos = new THREE.Vector3(targetX + offsetX, Math.max(4.0, targetY + 20.0), targetZ + offsetZ);
+  createJaggedLightningBoltGeometry(startPos, endPos, isWaterArc = false) {
+    const points = [];
+    const segments = isWaterArc ? 14 : 18;
+    let curr = startPos.clone();
+    points.push(curr.clone());
 
-      const boltGeo = this.createLightningBoltGeometry(startPos, endPos);
-      const boltMat = new THREE.LineBasicMaterial({
-        color: (b === 0) ? 0xffffff : 0xbae6fd,
-        linewidth: 4,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending
-      });
+    const dir = new THREE.Vector3().subVectors(endPos, startPos);
+    const step = dir.clone().divideScalar(segments);
 
-      const boltMesh = new THREE.Line(boltGeo, boltMat);
-      boltMesh.renderOrder = 1002;
-      this.scene.add(boltMesh);
+    // Perpendicular vectors for organic 3D zigzag displacement
+    const up = new THREE.Vector3(0, 1, 0);
+    let right = new THREE.Vector3().crossVectors(dir, up).normalize();
+    if (right.lengthSq() < 0.01) right = new THREE.Vector3(1, 0, 0);
+    const perpUp = new THREE.Vector3().crossVectors(right, dir).normalize();
 
-      this.activeLightningBolts.push({
-        mesh: boltMesh,
-        timer: 0.28 + Math.random() * 0.10,
-        maxTimer: 0.35,
-        isBoatHit: false
-      });
+    let lastJitterRight = 0;
+    let lastJitterUp = 0;
+
+    for (let i = 1; i < segments; i++) {
+      const progress = i / segments;
+      const basePos = startPos.clone().add(step.clone().multiplyScalar(i));
+      
+      const envelope = Math.sin(progress * Math.PI);
+      const maxDisplacement = (isWaterArc ? 5.5 : 8.5) * envelope;
+
+      // Sharp direction flips for dramatic jagged path ("bekelok-kelok")
+      lastJitterRight = -lastJitterRight * 0.35 + (Math.random() - 0.5) * maxDisplacement;
+      lastJitterUp = -lastJitterUp * 0.35 + (Math.random() - 0.5) * maxDisplacement;
+
+      const offset = right.clone().multiplyScalar(lastJitterRight)
+        .add(perpUp.clone().multiplyScalar(lastJitterUp));
+
+      curr = basePos.add(offset);
+      points.push(curr.clone());
+
+      // Jagged branch split (30% chance)
+      if (Math.random() < 0.30 && i < segments - 2) {
+        const branchOffset = right.clone().multiplyScalar((Math.random() - 0.5) * maxDisplacement * 1.5)
+          .add(perpUp.clone().multiplyScalar((Math.random() - 0.5) * maxDisplacement * 1.5))
+          .add(step.clone().multiplyScalar(1.2));
+        const branchEnd = curr.clone().add(branchOffset);
+        points.push(branchEnd);
+        points.push(curr.clone());
+      }
+    }
+    points.push(endPos.clone());
+
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }
+
+  spawnWaterLightningStrike(targetX, targetY, targetZ) {
+    // Random offset around titan sword base on lake water surface (8m to 25m radius)
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 8.0 + Math.random() * 18.0;
+    const waterX = targetX + Math.cos(angle) * dist;
+    const waterZ = targetZ + Math.sin(angle) * dist;
+
+    // Start position originates FROM THE TITAN SWORD MESH (not from the sky!)
+    const startPos = new THREE.Vector3(
+      targetX + (Math.random() - 0.5) * 2.5,
+      Math.max(6.0, (targetY || 8.0) + 10.0 + Math.random() * 22.0),
+      targetZ + (Math.random() - 0.5) * 2.5
+    );
+
+    // End position strikes down onto the surrounding lake water surface Y = 0.1
+    const endPos = new THREE.Vector3(waterX, 0.1, waterZ);
+
+    const boltGeo = this.createJaggedLightningBoltGeometry(startPos, endPos, true);
+    const boltMat = new THREE.LineBasicMaterial({
+      color: 0x60a5fa, // Electric cyan-blue water strike tint
+      linewidth: 1.5,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+
+    const boltMesh = new THREE.Line(boltGeo, boltMat);
+    boltMesh.renderOrder = 1002;
+    this.scene.add(boltMesh);
+
+    this.activeLightningBolts.push({
+      mesh: boltMesh,
+      timer: 0.16 + Math.random() * 0.06,
+      maxTimer: 0.22,
+      isBoatHit: false
+    });
+
+    // Water impact ripple & splash spray where lightning arcs from sword into the lake!
+    this.spawnRipple(waterX, waterZ);
+    if (this.game && this.game.swordRainManager) {
+      this.game.swordRainManager.spawnWaterSplash(waterX, waterZ);
+    }
+  }
+
+  spawnSingleSwordStrike(targetX, targetY, targetZ) {
+    // Jagged 3D lightning bolt striking the titan sword
+    const startPos = new THREE.Vector3(
+      targetX + (Math.random() - 0.5) * 10.0,
+      135.0 + Math.random() * 15.0,
+      targetZ + (Math.random() - 0.5) * 10.0
+    );
+    const endPos = new THREE.Vector3(targetX, Math.max(4.0, targetY + 22.0), targetZ);
+
+    const boltGeo = this.createJaggedLightningBoltGeometry(startPos, endPos, false);
+    const boltMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      linewidth: 1.8,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending
+    });
+
+    const boltMesh = new THREE.Line(boltGeo, boltMat);
+    boltMesh.renderOrder = 1002;
+    this.scene.add(boltMesh);
+
+    this.activeLightningBolts.push({
+      mesh: boltMesh,
+      timer: 0.16 + Math.random() * 0.06,
+      maxTimer: 0.22,
+      isBoatHit: false
+    });
+
+    // Arc lightning directly FROM THE TITAN SWORD to the surrounding lake water surface (2-3 simultaneous water arcs!)
+    const waterStrikesCount = 2 + Math.floor(Math.random() * 2);
+    for (let w = 0; w < waterStrikesCount; w++) {
+      this.spawnWaterLightningStrike(targetX, targetY, targetZ);
     }
 
-    // 2. High intensity lighting flash
-    this.lightningFlashTimer = 0.38;
-    this.lightningFlashIntensity = 5.0;
-    this.lightningLight.intensity = Math.max(this.lightningLight.intensity, 5.0);
+    // Light flash & subtle camera shake
+    this.lightningFlashTimer = 0.20;
+    this.lightningFlashIntensity = 2.8;
+    this.lightningLight.intensity = Math.max(this.lightningLight.intensity, 2.8);
     this.lightningPointLight.position.set(targetX, Math.max(10.0, targetY + 15.0), targetZ);
-    this.lightningPointLight.intensity = 35.0;
+    this.lightningPointLight.intensity = 18.0;
 
-    // 3. Screen camera shake & white screen blink/flash
     if (this.game) {
-      this.game.screenShake = 0.95;
+      this.game.screenShake = 0.55;
     }
 
     document.body.classList.add('sword-lightning-flash');
     setTimeout(() => {
       document.body.classList.remove('sword-lightning-flash');
-    }, 450);
+    }, 220);
 
-    // 4. Play synthesized thunder sound effect
+    // Play synthesized thunder sound effect
     this.playThunderSound(true);
+  }
+
+  triggerTitanSwordLightning(targetX, targetY, targetZ) {
+    // 2x consecutive strikes to the sword (1st strike immediate, 2nd strike 240ms later)
+    this.spawnSingleSwordStrike(targetX, targetY, targetZ);
+
+    setTimeout(() => {
+      this.spawnSingleSwordStrike(targetX, targetY, targetZ);
+    }, 240);
   }
 
   applyBoatLightningDamage() {

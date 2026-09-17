@@ -15,54 +15,70 @@ const sharedGeometries = {
   beaconUnit: new THREE.CylinderGeometry(0.7, 1.1, 6.5, 6)
 };
 
-// Static Base Materials
+// Static Base Materials (Pre-configured as transparent for 0-recompile WebGL opacity fade-in)
 const baseMaterials = {
   lakebed: new THREE.MeshStandardMaterial({
     color: 0x081320,
     roughness: 0.95,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   grass: new THREE.MeshStandardMaterial({
     color: 0x388e3c,
     roughness: 0.55,
     metalness: 0.08,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   rock: new THREE.MeshStandardMaterial({
     color: 0x607d8b,
     roughness: 0.48,
     metalness: 0.18,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   earth: new THREE.MeshStandardMaterial({
     color: 0x5d4037,
     roughness: 0.52,
     metalness: 0.12,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   trunk: new THREE.MeshStandardMaterial({
     color: 0x3e2723,
     roughness: 0.85,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   pine1: new THREE.MeshStandardMaterial({
     color: 0x1b5e20,
     roughness: 0.60,
     metalness: 0.05,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   pine2: new THREE.MeshStandardMaterial({
     color: 0x2e7d32,
     roughness: 0.60,
     metalness: 0.05,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   }),
   beaconMat: new THREE.MeshStandardMaterial({
     color: 0xffaa00,
     emissive: 0xff5500,
     emissiveIntensity: 0.8,
     roughness: 0.3,
-    flatShading: true
+    flatShading: true,
+    transparent: true,
+    opacity: 1.0
   })
 };
 
@@ -76,7 +92,7 @@ export class TerrainSegment {
     this.channelWidth = channelWidth;
     this.forkState = forkState;
 
-    // Segment-level material cloning for independent opacity fade-in
+    // Segment instance materials starting at 0.0 opacity for smooth fade-in
     this.materials = {
       lakebed: baseMaterials.lakebed.clone(),
       grass: baseMaterials.grass.clone(),
@@ -88,33 +104,25 @@ export class TerrainSegment {
       beaconMat: baseMaterials.beaconMat.clone()
     };
 
-    // Smooth Fade-In State
     this.opacity = 0.0;
-    this.isFadingIn = true;
     for (const mat of Object.values(this.materials)) {
-      mat.transparent = true;
       mat.opacity = 0.0;
     }
 
     this.group = new THREE.Group();
-    this.group.position.z = zOffset;
+    this.group.position.set(0, 0, zOffset);
 
     this.buildSegment();
   }
 
   update(delta = 0.016) {
-    if (this.isFadingIn) {
-      this.opacity += delta * 1.4; // Fades in smoothly over ~0.7 seconds
+    if (this.opacity < 1.0) {
+      this.opacity += delta * 1.8; // Smooth 0.55s visual opacity fade-in
       if (this.opacity >= 1.0) {
         this.opacity = 1.0;
-        this.isFadingIn = false;
       }
-
       for (const mat of Object.values(this.materials)) {
         mat.opacity = this.opacity;
-        if (!this.isFadingIn) {
-          mat.transparent = false; // Disable transparency when fully opaque for max rendering speed
-        }
       }
     }
   }
@@ -351,8 +359,10 @@ export class TerrainSegment {
 
   destroy() {
     this.scene.remove(this.group);
-    for (const mat of Object.values(this.materials)) {
-      mat.dispose();
+    if (this.materials) {
+      for (const mat of Object.values(this.materials)) {
+        mat.dispose();
+      }
     }
   }
 }

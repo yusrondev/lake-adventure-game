@@ -225,7 +225,7 @@ class InfiniteLakeGame {
   initThree() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x60a5fa);
-    this.scene.fog = new THREE.FogExp2(0x60a5fa, 0.0050);
+    this.scene.fog = null;
 
     // Responsive perspective camera POV (Dynamic FOV & Offset based on Portrait vs Landscape)
     const isLandscape = window.innerWidth > window.innerHeight;
@@ -1116,9 +1116,9 @@ class InfiniteLakeGame {
         this.milestoneBanner.classList.remove('show');
         setTimeout(() => {
           if (this.milestoneBanner) this.milestoneBanner.classList.add('hidden');
-        }, 900);
+        }, 400);
       }
-    }, 3800);
+    }, 2500);
   }
 
   showForkBanner(forkDist) {
@@ -1142,9 +1142,9 @@ class InfiniteLakeGame {
         this.milestoneBanner.classList.remove('show');
         setTimeout(() => {
           if (this.milestoneBanner) this.milestoneBanner.classList.add('hidden');
-        }, 900);
+        }, 400);
       }
-    }, 4500);
+    }, 2500);
   }
 }
 

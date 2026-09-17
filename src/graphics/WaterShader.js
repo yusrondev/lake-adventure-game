@@ -13,6 +13,11 @@ export class WaterSystem {
     this.targetStormFactor = 0.0;
     this.currentStormFactor = 0.0;
 
+    // Localized Titan Sword Emergence Wave
+    this.swordPos = new THREE.Vector3(0, -9999, 0);
+    this.swordWaveFactor = 0.0;
+    this.targetSwordWaveFactor = 0.0;
+
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -29,12 +34,17 @@ export class WaterSystem {
         uSpotLightIntensity: { value: 0.0 },
         uSpotLightAngle: { value: Math.PI / 8.5 },
         uWaterLevelRise: { value: 0.0 },
-        uStormWaveMult: { value: 1.0 }
+        uStormWaveMult: { value: 1.0 },
+        uSwordPos: { value: this.swordPos },
+        uSwordWaveFactor: { value: 0.0 }
       },
       vertexShader: `
         uniform float uTime;
         uniform float uWaterLevelRise;
         uniform float uStormWaveMult;
+        uniform vec3 uSwordPos;
+        uniform float uSwordWaveFactor;
+
         varying vec3 vWorldPosition;
         varying vec3 vNormal;
         varying vec2 vUv;
@@ -56,7 +66,12 @@ export class WaterSystem {
           float wave3 = sin(wz * 0.32 - t * 1.7) * (0.08 * uStormWaveMult);
           float stormSwell = sin(wx * 0.28 + wz * 0.38 + t * 2.0) * (0.14 * max(0.0, uStormWaveMult - 1.0));
 
-          float totalWave = uWaterLevelRise + wave1 + wave2 + wave3 + stormSwell;
+          // Localized Titan Sword Emergence Wave (Radius <= 55m around uSwordPos)
+          float swordDist = length(vec2(wx - uSwordPos.x, wz - uSwordPos.z));
+          float swordAtten = smoothstep(55.0, 0.0, swordDist);
+          float swordSwell = sin(swordDist * 0.45 - t * 3.2) * (0.35 * uSwordWaveFactor * swordAtten);
+
+          float totalWave = uWaterLevelRise + wave1 + wave2 + wave3 + stormSwell + swordSwell;
 
           // In PlaneGeometry with rotation.x = -PI/2, local Z points UP in world space
           pos.z += totalWave;
@@ -200,17 +215,37 @@ export class WaterSystem {
     const wave3 = Math.sin(z * 0.32 - t * 1.7) * (0.08 * mult);
     const stormSwell = Math.sin(x * 0.28 + z * 0.38 + t * 2.0) * (0.14 * Math.max(0.0, mult - 1.0));
 
-    return rise + wave1 + wave2 + wave3 + stormSwell;
+    let swordSwell = 0.0;
+    if (this.swordWaveFactor > 0.001) {
+      const dx = x - this.swordPos.x;
+      const dz = z - this.swordPos.z;
+      const swordDist = Math.hypot(dx, dz);
+      if (swordDist < 55.0) {
+        const swordAtten = 1.0 - (swordDist / 55.0);
+        const smoothAtten = swordAtten * swordAtten * (3 - 2 * swordAtten);
+        swordSwell = Math.sin(swordDist * 0.45 - t * 3.2) * (0.35 * this.swordWaveFactor * smoothAtten);
+      }
+    }
+
+    return rise + wave1 + wave2 + wave3 + stormSwell + swordSwell;
   }
 
   setStormFactor(stormFactor) {
     this.targetStormFactor = stormFactor;
   }
 
+  setSwordWave(x, z, factor) {
+    this.swordPos.set(x, 0, z);
+    this.targetSwordWaveFactor = factor;
+  }
+
   update(delta) {
     // Silky-smooth exponential damping to eliminate any sudden level jumps or glitches
     const smoothRate = 1.0 - Math.exp(-1.4 * delta);
     this.currentStormFactor += (this.targetStormFactor - this.currentStormFactor) * smoothRate;
+
+    const smoothSword = 1.0 - Math.exp(-3.0 * delta);
+    this.swordWaveFactor += (this.targetSwordWaveFactor - this.swordWaveFactor) * smoothSword;
 
     // +0.60m smooth water swell and up to 3.8x wave multiplier
     this.waterLevelRise = this.currentStormFactor * 0.60;
@@ -226,6 +261,12 @@ export class WaterSystem {
       }
       if (this.material.uniforms.uStormWaveMult) {
         this.material.uniforms.uStormWaveMult.value = this.stormWaveMult;
+      }
+      if (this.material.uniforms.uSwordPos) {
+        this.material.uniforms.uSwordPos.value.copy(this.swordPos);
+      }
+      if (this.material.uniforms.uSwordWaveFactor) {
+        this.material.uniforms.uSwordWaveFactor.value = this.swordWaveFactor;
       }
     }
   }
