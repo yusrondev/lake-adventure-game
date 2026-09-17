@@ -468,6 +468,9 @@ class InfiniteLakeGame {
   setupNetworkEvents() {
     this.networkManager.on('room_created', (data) => {
       this.isMultiplayer = true;
+      if (data.player && data.player.color && this.humanoid) {
+        this.humanoid.setShirtColor(data.player.color);
+      }
       if (data.worldSeed && this.rockManager) {
         this.rockManager.setWorldSeed(data.worldSeed);
       }
@@ -480,6 +483,9 @@ class InfiniteLakeGame {
 
     this.networkManager.on('room_joined', (data) => {
       this.isMultiplayer = true;
+      if (data.player && data.player.color && this.humanoid) {
+        this.humanoid.setShirtColor(data.player.color);
+      }
       if (data.worldSeed && this.rockManager) {
         this.rockManager.setWorldSeed(data.worldSeed);
       }
@@ -487,14 +493,50 @@ class InfiniteLakeGame {
       if (this.btnHostStart) this.btnHostStart.classList.add('hidden');
       if (this.guestWaitingMsg) this.guestWaitingMsg.classList.remove('hidden');
       this.updatePlayerListUI(data.players || []);
-      this.showView('waiting-room');
+
+      // If joining mid-game (Late Join while session is already PLAYING):
+      if (data.gameState === 'PLAYING') {
+        if (data.timeOfDay !== undefined && this.dayNightCycle) {
+          this.dayNightCycle.timeOfDay = data.timeOfDay;
+        }
+        if (data.boatState && this.physics) {
+          this.physics.applyRemoteBoatState(data.boatState);
+        }
+        if (data.lanternState && this.woodenBoat) {
+          this.woodenBoat.setLanternOn(data.lanternState.isLanternOn);
+        }
+
+        // Spawn existing player avatars on boat
+        this.clearAllRemotePlayers();
+        if (data.players) {
+          data.players.forEach(p => {
+            if (p.id !== this.networkManager.playerId) {
+              this.spawnRemotePlayer(p);
+            }
+          });
+        }
+
+        // Show HUD multiplayer room pill
+        if (this.hudMpPill && this.hudMpInfo) {
+          this.hudMpInfo.textContent = this.networkManager.roomCode;
+          this.hudMpPill.classList.remove('hidden');
+        }
+
+        this.startGame();
+        this.showNotification('Anda telah bergabung ke dalam permainan yang sedang berlangsung!');
+      } else {
+        this.showView('waiting-room');
+      }
     });
 
     this.networkManager.on('player_joined', (data) => {
       this.updatePlayerListUI(data.players || []);
-      // If game is active, spawn remote player avatar
-      if (this.gameState === 'PLAYING' && data.player && data.player.id !== this.networkManager.playerId) {
-        this.spawnRemotePlayer(data.player);
+      // If game is active, spawn remote player avatar & notify
+      if (data.player && data.player.id !== this.networkManager.playerId) {
+        if (this.gameState === 'PLAYING') {
+          this.spawnRemotePlayer(data.player);
+          this.showNotification(`${data.player.name} telah bergabung ke perahu!`);
+        }
       }
     });
 
@@ -510,6 +552,9 @@ class InfiniteLakeGame {
     });
 
     this.networkManager.on('game_start', (data) => {
+      if (this.isMultiplayer && this.networkManager.playerColor && this.humanoid) {
+        this.humanoid.setShirtColor(this.networkManager.playerColor);
+      }
       // Set room world seed in RockManager so all clients generate identical obstacles
       if (data.worldSeed && this.rockManager) {
         this.rockManager.setWorldSeed(data.worldSeed);
@@ -766,6 +811,12 @@ class InfiniteLakeGame {
   startGame() {
     this.gameState = 'PLAYING';
     this.modalScreen.classList.add('hidden');
+
+    if (this.isMultiplayer && this.networkManager.playerColor && this.humanoid) {
+      this.humanoid.setShirtColor(this.networkManager.playerColor);
+    } else if (!this.isMultiplayer && this.humanoid) {
+      this.humanoid.setShirtColor('#38bdf8');
+    }
 
     this.requestFullscreenMode();
     

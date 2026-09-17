@@ -11,7 +11,7 @@ export function setupWebSocketServer(serverOrPort) {
     serverOrPort.on('upgrade', (request, socket, head) => {
       try {
         const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
-        if (url.pathname === '/ws') {
+        if (url.pathname === '/ws' || url.pathname.startsWith('/ws')) {
           wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request);
           });

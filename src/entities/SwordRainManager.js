@@ -502,14 +502,7 @@ export class SwordRainManager {
           this.spawnRipple(activeObj.x, activeObj.z);
         }
 
-        // Boost dramatic localized lake water wave swell around titan sword emergence
-        if (this.game && this.game.waterSystem) {
-          let waveFactor = Math.sin(smoothProgress * Math.PI);
-          if (activeObj.isFallingFromSky) {
-            waveFactor = smoothProgress > 0.6 ? Math.sin(((smoothProgress - 0.6) / 0.4) * Math.PI) : 0;
-          }
-          this.game.waterSystem.setSwordWave(activeObj.x, activeObj.z, waveFactor * 0.85);
-        }
+
 
         // Spawn dramatic water splash spray on left/right/front/back sides of titan sword as it breaks water surface
         const shouldSplash = activeObj.isFallingFromSky

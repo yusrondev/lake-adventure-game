@@ -8,6 +8,11 @@ function multiplayerPlugin() {
       if (server.httpServer) {
         setupWebSocketServer(server.httpServer);
       }
+    },
+    configurePreviewServer(server) {
+      if (server.httpServer) {
+        setupWebSocketServer(server.httpServer);
+      }
     }
   };
 }

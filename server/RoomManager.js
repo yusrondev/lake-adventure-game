@@ -102,14 +102,6 @@ export class RoomManager {
       return null;
     }
 
-    if (room.gameState !== 'LOBBY') {
-      this.send(ws, {
-        type: 'ERROR',
-        message: 'Permainan dalam ruangan ini sudah dimulai.'
-      });
-      return null;
-    }
-
     if (room.players.size >= 8) {
       this.send(ws, {
         type: 'ERROR',
@@ -137,7 +129,7 @@ export class RoomManager {
     ws.playerId = playerId;
     ws.roomCode = formattedCode;
 
-    // Send success to the joining player
+    // Send success to the joining player (includes in-progress game state if already PLAYING)
     this.send(ws, {
       type: 'ROOM_JOINED',
       roomCode: formattedCode,
@@ -149,7 +141,12 @@ export class RoomManager {
         isHost: false
       },
       players: this.getPlayerList(room),
-      worldSeed: room.worldSeed
+      worldSeed: room.worldSeed,
+      gameState: room.gameState,
+      timeOfDay: room.timeOfDay,
+      weatherState: room.weatherState,
+      boatState: room.boatState,
+      lanternState: room.lanternState
     });
 
     // Broadcast new player to others in room

@@ -175,6 +175,9 @@ export class BlockyHumanoid {
     this.rightFoot.position.set(0, -0.26, -0.03);
     this.rightKnee.add(this.rightFoot);
 
+    // Store shirt meshes for clean dynamic color updates
+    this.shirtMeshes = [abdomenMesh, chestMesh, leftUpperArm, rightUpperArm];
+
     // Shadows
     this.mesh.traverse((node) => {
       if (node.isMesh) {
@@ -182,6 +185,23 @@ export class BlockyHumanoid {
         node.receiveShadow = true;
       }
     });
+  }
+
+  setShirtColor(color) {
+    if (!color) return;
+    if (this.materials && this.materials.shirt) {
+      this.materials.shirt = this.materials.shirt.clone();
+      const hexStr = String(color).replace('#', '');
+      const colorNum = parseInt(hexStr, 16);
+      if (!isNaN(colorNum)) {
+        this.materials.shirt.color.setHex(colorNum);
+      }
+      if (this.shirtMeshes) {
+        this.shirtMeshes.forEach(mesh => {
+          mesh.material = this.materials.shirt;
+        });
+      }
+    }
   }
 
   update(delta = 0.016, isMoving = false, currentLocalPos = { x: 0, y: 0 }, targetLocalPos = { x: 0, y: 0 }) {

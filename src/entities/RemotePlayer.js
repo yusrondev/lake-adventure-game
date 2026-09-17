@@ -32,12 +32,8 @@ export class RemotePlayer {
     this.humanoid = new BlockyHumanoid();
     
     // Customize shirt color to match player's assigned color
-    if (this.color && this.humanoid.materials && this.humanoid.materials.shirt) {
-      const hexStr = String(this.color).replace('#', '');
-      const shirtColorNum = parseInt(hexStr, 16);
-      if (!isNaN(shirtColorNum)) {
-        this.humanoid.materials.shirt.color.setHex(shirtColorNum);
-      }
+    if (this.color && this.humanoid) {
+      this.humanoid.setShirtColor(this.color);
     }
 
     this.group.add(this.humanoid.mesh);
@@ -123,7 +119,7 @@ export class RemotePlayer {
     // 3. Ultra-Crisp Screen-Space Projected HTML Nametag
     if (this.nametagElem && camera) {
       this.projVec.setFromMatrixPosition(this.group.matrixWorld);
-      this.projVec.y += 2.25; // Higher head level height above deck so it never blocks forward view
+      this.projVec.y += 1.35; // Positioned right above character head level
 
       this.projVec.project(camera);
 
