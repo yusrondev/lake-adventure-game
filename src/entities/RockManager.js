@@ -126,6 +126,10 @@ export class RockManager {
     const nearestSwordZ = Math.round(zCenter / 3500) * 3500;
     if (Math.abs(zCenter - nearestSwordZ) < 150) return;
 
+    // Do not spawn obstacle rocks anywhere near 6200m Fork Intersections (every 6200m)
+    const nearestForkZ = Math.round(zCenter / 6200) * 6200;
+    if (Math.abs(zCenter - nearestForkZ) < 300) return;
+
     const segmentRocks = [];
 
     // Determine how many rocks to spawn in this segment (1 rock base, up to 2 rocks at higher distance)

@@ -222,7 +222,7 @@ export class PlankPhysics {
         this.boat.mesh.position.copy(this.worldPosition);
 
         if (window.gameInstance && window.gameInstance.showNotification) {
-          window.gameInstance.showNotification('⛵ Perahu dipindahkan ke jalur aman!');
+          window.gameInstance.showNotification('Perahu dipindahkan ke jalur aman');
         }
       }
     } else {
@@ -248,7 +248,10 @@ export class PlankPhysics {
 
   // 3D Mesh Contour Shore Collision Check
   check3DHullShoreCollision(chunkManager) {
-    if (!this.boat.isLoaded) return chunkManager.checkBankCollision(this.worldPosition.x);
+    if (chunkManager && chunkManager.getOuterLimitAtZ) {
+      this.safeChannelLimit = chunkManager.getOuterLimitAtZ(this.worldPosition.z);
+    }
+    if (!this.boat.isLoaded) return chunkManager.checkBankCollision(this.worldPosition.x, this.worldPosition.z);
 
     // Sample 5 key contour points on the 3D boat GLTF mesh (Bow tip, Bow-Port, Bow-Starboard, Stern-Port, Stern-Starboard)
     const halfLength = this.boat.length / 2;
@@ -270,7 +273,7 @@ export class PlankPhysics {
 
     for (const localPt of localHullPoints) {
       const worldPt = localPt.clone().applyEuler(rotMatrix).add(this.worldPosition);
-      const collision = chunkManager.checkBankCollision(worldPt.x);
+      const collision = chunkManager.checkBankCollision(worldPt.x, worldPt.z);
       if (collision.collided) {
         return collision; // Return true collision based on 3D mesh contour!
       }

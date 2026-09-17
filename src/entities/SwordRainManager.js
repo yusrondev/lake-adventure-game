@@ -266,15 +266,16 @@ export class SwordRainManager {
   initModel(modelScene) {
     this.swordTemplate = modelScene;
 
-    // Clean material: no shadow casting/receiving, no emissive glow
+    // Clean material: no shadow casting/receiving, ambient emissive lift for crystal-clear texture visibility
     this.swordTemplate.traverse((child) => {
       if (child.isMesh) {
         child.frustumCulled = false;
         child.castShadow = false;
         child.receiveShadow = false;
         if (child.material) {
-          child.material.metalness = 0.85;
-          child.material.roughness = 0.25;
+          child.material = child.material.clone();
+          child.material.metalness = 0.35;
+          child.material.roughness = 0.40;
           child.material.fog = false;
           if (child.material.emissive) {
             child.material.emissive.setHex(0x000000);

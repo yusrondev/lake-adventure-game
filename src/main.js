@@ -777,6 +777,7 @@ class InfiniteLakeGame {
     this.physics.turnSpeed = 0;
     this.physics.health = 100;
     this.distanceTraveled = 0;
+    this.lastForkWarnedIndex = 0;
     if (this.swordRainManager) this.swordRainManager.reset();
     if (this.weatherManager) this.weatherManager.reset();
     this.updateHpUI();
@@ -899,26 +900,6 @@ class InfiniteLakeGame {
     }
   }
 
-  onGatePassed(gateIndex, distance) {
-    if (!this.milestoneBanner || !this.milestoneText) return;
-
-    const km = (gateIndex * 2).toLocaleString('id-ID');
-    this.milestoneText.textContent = `Gerbang Torii • ${km}.000 Meter`;
-
-    this.milestoneBanner.classList.remove('hidden');
-    void this.milestoneBanner.offsetWidth;
-    this.milestoneBanner.classList.add('show');
-
-    if (this.milestoneTimeout) clearTimeout(this.milestoneTimeout);
-    this.milestoneTimeout = setTimeout(() => {
-      if (this.milestoneBanner) {
-        this.milestoneBanner.classList.remove('show');
-        setTimeout(() => {
-          if (this.milestoneBanner) this.milestoneBanner.classList.add('hidden');
-        }, 550);
-      }
-    }, 2800);
-  }
 
   animate() {
     requestAnimationFrame(() => this.animate());
@@ -1061,6 +1042,13 @@ class InfiniteLakeGame {
       if (this.distanceEl) this.distanceEl.innerHTML = `${Math.floor(this.distanceTraveled)} <small>m</small>`;
       if (this.speedEl) this.speedEl.innerHTML = `${isReverse ? 'R ' : ''}${speedKmH} <small>km/h</small>`;
 
+      // Milestone warning banner when 200m before 6200m fork intersections
+      const nextForkIndex = Math.floor((this.distanceTraveled + 200) / 6200);
+      if (nextForkIndex > this.lastForkWarnedIndex && nextForkIndex >= 1) {
+        this.lastForkWarnedIndex = nextForkIndex;
+        this.showForkBanner(nextForkIndex * 6200);
+      }
+
       // Proximity Trigger check for player near front-bow lantern fixture (z = -3.4m)
       const playerPosOnDeck = this.physics.playerLocalPos;
       const distToLantern = Math.hypot(playerPosOnDeck.x - 0, playerPosOnDeck.y - (-3.4));
@@ -1085,7 +1073,9 @@ class InfiniteLakeGame {
       this.tempCamOffset.applyAxisAngle(this.upAxis, this.physics.heading * 0.15);
 
       this.targetCamPos.copy(pPos).add(this.tempCamOffset);
-      this.targetCamPos.x = THREE.MathUtils.clamp(this.targetCamPos.x, -14.0, 14.0);
+      const safeLimit = this.physics ? this.physics.safeChannelLimit : 19.2;
+      const maxCamX = Math.max(14.0, safeLimit - 4.5);
+      this.targetCamPos.x = THREE.MathUtils.clamp(this.targetCamPos.x, -maxCamX, maxCamX);
 
       if (this.screenShake > 0) {
         this.targetCamPos.x += (Math.random() - 0.5) * this.screenShake;
@@ -1105,19 +1095,56 @@ class InfiniteLakeGame {
   }
 
   onGatePassed(gateIndex, distanceMeters) {
-    if (!this.milestoneBanner || !this.milestoneText) return;
+    if (!this.milestoneBanner) return;
 
-    const formattedDist = (distanceMeters / 1000).toFixed(1).replace('.0', '') + '.000m';
-    this.milestoneText.textContent = `Gerbang Torii • ${formattedDist}`;
+    const formattedDist = (distanceMeters / 1000).toFixed(1).replace('.0', '') + '.000 METER';
+    const titleEl = document.getElementById('milestone-title');
+    const distEl = document.getElementById('milestone-dist');
+    const subEl = document.getElementById('wukong-sub');
+
+    if (subEl) subEl.textContent = 'LOKASI BARU';
+    if (titleEl) titleEl.textContent = 'GERBANG TORII';
+    if (distEl) distEl.textContent = formattedDist;
 
     this.milestoneBanner.classList.remove('hidden');
+    void this.milestoneBanner.offsetWidth;
+    this.milestoneBanner.classList.add('show');
 
     if (this.milestoneTimeout) clearTimeout(this.milestoneTimeout);
     this.milestoneTimeout = setTimeout(() => {
       if (this.milestoneBanner) {
-        this.milestoneBanner.classList.add('hidden');
+        this.milestoneBanner.classList.remove('show');
+        setTimeout(() => {
+          if (this.milestoneBanner) this.milestoneBanner.classList.add('hidden');
+        }, 900);
       }
-    }, 4000);
+    }, 3800);
+  }
+
+  showForkBanner(forkDist) {
+    if (!this.milestoneBanner) return;
+
+    const titleEl = document.getElementById('milestone-title');
+    const distEl = document.getElementById('milestone-dist');
+    const subEl = document.getElementById('wukong-sub');
+
+    if (subEl) subEl.textContent = 'PILIH JALUR KIRI / KANAN';
+    if (titleEl) titleEl.textContent = 'PERSIMPANGAN TEBING';
+    if (distEl) distEl.textContent = `${forkDist} METER`;
+
+    this.milestoneBanner.classList.remove('hidden');
+    void this.milestoneBanner.offsetWidth;
+    this.milestoneBanner.classList.add('show');
+
+    if (this.milestoneTimeout) clearTimeout(this.milestoneTimeout);
+    this.milestoneTimeout = setTimeout(() => {
+      if (this.milestoneBanner) {
+        this.milestoneBanner.classList.remove('show');
+        setTimeout(() => {
+          if (this.milestoneBanner) this.milestoneBanner.classList.add('hidden');
+        }, 900);
+      }
+    }, 4500);
   }
 }
 
