@@ -212,7 +212,7 @@ export class TerrainSegment {
       this.group.add(bgPeakR);
     }
 
-    // 3. Low-Poly Shoreline Rocks
+    // 3. Low-Poly Shoreline Rocks (Pushed outward to keep river channel wide and navigable)
     const rockCount = 4;
     for (let i = 0; i < rockCount; i++) {
       const isLeft = Math.random() > 0.5;
@@ -220,7 +220,7 @@ export class TerrainSegment {
       const rock = new THREE.Mesh(sharedGeometries.rockUnit, this.materials.rock);
       rock.scale.set(rockSize, rockSize, rockSize);
       
-      const rockX = isLeft ? -(effectiveChannelWidth / 2 + 1.2) : (effectiveChannelWidth / 2 + 1.2);
+      const rockX = isLeft ? -(effectiveChannelWidth / 2 + 4.5) : (effectiveChannelWidth / 2 + 4.5);
       const zPos = (Math.random() - 0.5) * (this.length * 0.9);
       
       rock.position.set(rockX, 0.6, zPos);
@@ -230,46 +230,7 @@ export class TerrainSegment {
       this.group.add(rock);
     }
 
-    // 4. Low-Poly Pine Trees
-    const treeCount = 5;
-    for (let i = 0; i < treeCount; i++) {
-      const isLeft = Math.random() > 0.5;
-      const xSide = isLeft ? -(effectiveChannelWidth / 2 + 6 + Math.random() * 9) : (effectiveChannelWidth / 2 + 6 + Math.random() * 9);
-      const zPos = (Math.random() - 0.5) * (this.length * 0.9);
-
-      const treeGroup = new THREE.Group();
-
-      // Trunk
-      const trunk = new THREE.Mesh(sharedGeometries.trunkUnit, this.materials.trunk);
-      trunk.position.y = 1.75;
-      treeGroup.add(trunk);
-
-      // Cones
-      const pineMat = Math.random() > 0.5 ? this.materials.pine1 : this.materials.pine2;
-      const tier1 = new THREE.Mesh(sharedGeometries.coneUnit1, pineMat);
-      tier1.position.y = 4.2;
-      treeGroup.add(tier1);
-
-      const tier2 = new THREE.Mesh(sharedGeometries.coneUnit2, pineMat);
-      tier2.position.y = 6.0;
-      treeGroup.add(tier2);
-
-      const tier3 = new THREE.Mesh(sharedGeometries.coneUnit3, pineMat);
-      tier3.position.y = 7.6;
-      treeGroup.add(tier3);
-
-      const scaleVar = 0.8 + Math.random() * 0.45;
-      treeGroup.scale.set(scaleVar, scaleVar, scaleVar);
-      treeGroup.rotation.y = Math.random() * Math.PI * 2;
-      
-      const distFromBank = Math.abs(xSide) - (effectiveChannelWidth / 2);
-      const treeY = 1.2 + distFromBank * 0.45 + Math.random() * 1.5;
-      treeGroup.position.set(xSide, treeY, zPos);
-
-      this.group.add(treeGroup);
-    }
-
-    // 5. DRAMATIC CENTRAL CLIFF ISLAND (FORK INTERSECTION)
+    // 4. DRAMATIC CENTRAL CLIFF ISLAND (FORK INTERSECTION)
     if (isFork && this.forkState.islandHalfWidth > 0.5) {
       this.buildCentralCliffIsland(this.forkState.islandHalfWidth);
     }
@@ -310,37 +271,6 @@ export class TerrainSegment {
       sideRock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
       sideRock.castShadow = true;
       this.group.add(sideRock);
-    }
-
-    // Pine Trees on top of Central Cliff Island
-    const islandTreeCount = 4;
-    for (let i = 0; i < islandTreeCount; i++) {
-      const zPos = -this.length / 2 + (i / (islandTreeCount - 1)) * this.length + (Math.random() - 0.5) * 8;
-      const xPos = (Math.random() - 0.5) * (halfW * 0.6);
-
-      const treeGroup = new THREE.Group();
-      const trunk = new THREE.Mesh(sharedGeometries.trunkUnit, this.materials.trunk);
-      trunk.position.y = 1.75;
-      treeGroup.add(trunk);
-
-      const pineMat = Math.random() > 0.5 ? this.materials.pine1 : this.materials.pine2;
-      const tier1 = new THREE.Mesh(sharedGeometries.coneUnit1, pineMat);
-      tier1.position.y = 4.2;
-      treeGroup.add(tier1);
-
-      const tier2 = new THREE.Mesh(sharedGeometries.coneUnit2, pineMat);
-      tier2.position.y = 6.0;
-      treeGroup.add(tier2);
-
-      const tier3 = new THREE.Mesh(sharedGeometries.coneUnit3, pineMat);
-      tier3.position.y = 7.6;
-      treeGroup.add(tier3);
-
-      const scaleVar = 1.0 + Math.random() * 0.4;
-      treeGroup.scale.set(scaleVar, scaleVar, scaleVar);
-      treeGroup.rotation.y = Math.random() * Math.PI * 2;
-      treeGroup.position.set(xPos, 14.0 + Math.random() * 6.0, zPos); // High up on top of cliff!
-      this.group.add(treeGroup);
     }
 
     // Glowing Stone Beacon Pillars marking Left/Right channels at fork entry

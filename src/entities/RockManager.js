@@ -105,7 +105,7 @@ export class RockManager {
   preloadAsset() {
     const loader = new GLTFLoader();
     loader.load(
-      '/src/env/stylized_low-poly_stone.glb',
+      '/models/stylized_low-poly_stone.glb',
       (gltf) => {
         this.initModel(gltf.scene);
       },
@@ -179,11 +179,11 @@ export class RockManager {
       const rockMesh = this.createRockInstance();
       if (!rockMesh) continue;
 
-      // Highly varied non-uniform sizes (Scale range 1.4x to 3.8x)
-      const scaleBase = 1.4 + rng.random() * 2.4;
-      const scaleX = scaleBase * (0.85 + rng.random() * 0.35);
-      const scaleY = scaleBase * (0.9 + rng.random() * 0.4);
-      const scaleZ = scaleBase * (0.85 + rng.random() * 0.35);
+      // Moderated sizes (Scale range 1.0x to 2.2x) to ensure wide navigable channels
+      const scaleBase = 1.0 + rng.random() * 1.2;
+      const scaleX = scaleBase * (0.85 + rng.random() * 0.3);
+      const scaleY = scaleBase * (0.9 + rng.random() * 0.3);
+      const scaleZ = scaleBase * (0.85 + rng.random() * 0.3);
 
       rockMesh.scale.set(scaleX, scaleY, scaleZ);
 
@@ -332,22 +332,22 @@ export class RockManager {
           // Capture incoming boat speed BEFORE deceleration
           const incomingSpeedKmH = Math.abs(physics.speed) * 3.6;
 
-          // 1. HARD IMPENETRABLE COLLISION DISPLACEMENT ALONG CONTACT NORMAL
-          const pushDistance = Math.max(0.20, overlap + 0.08);
-          physics.worldPosition.x += normX * pushDistance;
-          physics.worldPosition.z += normZ * pushDistance;
+      // 1. HARD IMPENETRABLE COLLISION DISPLACEMENT ALONG CONTACT NORMAL (Exact smooth displacement, no over-jump jitter)
+      const pushDistance = overlap + 0.02;
+      physics.worldPosition.x += normX * pushDistance;
+      physics.worldPosition.z += normZ * pushDistance;
 
-          // Clamp X to safe channel boundary
-          physics.worldPosition.x = THREE.MathUtils.clamp(
-            physics.worldPosition.x,
-            -physics.safeChannelLimit + 0.3,
-            physics.safeChannelLimit - 0.3
-          );
+      // Clamp X to safe channel boundary
+      physics.worldPosition.x = THREE.MathUtils.clamp(
+        physics.worldPosition.x,
+        -physics.safeChannelLimit + 0.3,
+        physics.safeChannelLimit - 0.3
+      );
 
-          // 2. BOUNCE & GLIDE SMOOTHLY (Maintain ~75% forward speed at high speed)
-          const retainFactor = Math.abs(physics.speed) > 5.0 ? 0.75 : 0.50;
-          physics.speed = physics.speed * retainFactor;
-          physics.turnSpeed = normX * 0.8;
+      // 2. BOUNCE & GLIDE SMOOTHLY
+      const retainFactor = Math.abs(physics.speed) > 5.0 ? 0.85 : 0.65;
+      physics.speed = physics.speed * retainFactor;
+      physics.turnSpeed = THREE.MathUtils.lerp(physics.turnSpeed, normX * 1.5, 0.3);
 
           // Trigger character impact stumble inertia & REAL physical position shift on deck
           if (physics.triggerImpactLean) {

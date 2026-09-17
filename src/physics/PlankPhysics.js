@@ -353,8 +353,8 @@ export class PlankPhysics {
       this.boat.triggerImpactDust(impactX, 0.4, impactZ, bounceDirection, 0);
     }
 
-    // Smooth physical separation force (bounce off smoothly towards open water)
-    const pushAmount = Math.max(0.35, (penetration || 0.4) * 0.6);
+    // Smooth physical separation force (glide off smoothly without high-frequency jitter)
+    const pushAmount = Math.min(0.20, (penetration || 0.1) * 0.4 + 0.02);
     this.worldPosition.x += bounceDirection * pushAmount;
     this.worldPosition.x = THREE.MathUtils.clamp(
       this.worldPosition.x,
@@ -362,17 +362,17 @@ export class PlankPhysics {
       this.safeChannelLimit - 0.2
     );
 
-    // Apply lateral turn speed impulse away from shore/wall without turning heading serong
-    this.turnSpeed = bounceDirection * 5.0;
+    // Apply gentle lateral turn speed impulse away from shore without violent vibration
+    this.turnSpeed = THREE.MathUtils.lerp(this.turnSpeed, bounceDirection * 2.0, 0.35);
     this.heading = 0;
 
-    // Maintain momentum (~75% forward speed at high speed)
-    const retainFactor = Math.abs(this.speed) > 5.0 ? 0.75 : 0.50;
+    // Maintain momentum (~85% forward speed)
+    const retainFactor = Math.abs(this.speed) > 5.0 ? 0.85 : 0.65;
     this.speed = this.speed * retainFactor;
-    this.collisionSlowTimer = 0.5;
+    this.collisionSlowTimer = 0.4;
 
-    // Smooth visual roll banking response upon impact
-    this.roll = THREE.MathUtils.lerp(this.roll, -bounceDirection * 0.25, 0.4);
+    // Smooth visual roll response upon impact
+    this.roll = THREE.MathUtils.lerp(this.roll, -bounceDirection * 0.12, 0.25);
 
     return didDamage ? { hit: true, impactPos: this.lastImpactPos } : false;
   }

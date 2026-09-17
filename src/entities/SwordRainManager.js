@@ -410,8 +410,8 @@ export class SwordRainManager {
         activeObj.y = THREE.MathUtils.lerp(activeObj.startRiseY, activeObj.targetY, smoothProgress);
         activeObj.group.position.y = activeObj.y;
 
-        // When titan sword emerges 80% above lake water (smoothProgress >= 0.80), trigger lightning strike & white screen blink!
-        if (!activeObj.hasStruckLightning && smoothProgress >= 0.80) {
+        // When titan sword reaches 100% emergence (smoothProgress >= 1.0), trigger dramatic lightning strike & white screen blink!
+        if (!activeObj.hasStruckLightning && smoothProgress >= 1.0) {
           activeObj.hasStruckLightning = true;
           this.triggerSwordLightningStrike(activeObj);
         }

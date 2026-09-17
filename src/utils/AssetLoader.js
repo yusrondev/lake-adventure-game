@@ -10,9 +10,6 @@ export class AssetLoader {
     this.assetManifest = [
       { id: 'stone', path: '/models/stylized_low-poly_stone.glb' },
       { id: 'toriiGate', path: '/models/japanese_tori_gate.glb' },
-      { id: 'pineTree', path: '/models/pine_tree.glb' },
-      { id: 'woodenBoat', path: '/models/wooden_boat.glb' },
-      { id: 'bambooRaft', path: '/models/bamboo_raft.glb' },
       { id: 'medievalSword', path: '/models/medieval_sword.glb' }
     ];
 
