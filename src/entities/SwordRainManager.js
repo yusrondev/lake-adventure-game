@@ -16,9 +16,9 @@ export class SwordRainManager {
     this.swordScale = 56.0;  // Giant Titan Medieval Sword (~112m height)
     this.swordTargetY = 8.0;  // Base lodging height
 
-    // Pool of 2 pre-warmed Medieval Swords
+    // Pool of 4 pre-warmed Medieval Swords (to support triple-sword wave at 10,000m+)
     this.swords = [];
-    this.poolSize = 2;
+    this.poolSize = 4;
 
     // Track active landmark state
     this.currentMilestoneIdx = 0;
@@ -344,22 +344,98 @@ export class SwordRainManager {
 
     const variant = this.getLandmarkVariant(milestoneIdx);
 
-    // Activate Medieval Sword (Includes smooth underwater rise + water splash spray!)
-    const sword = this.swords[0];
-    if (sword) {
-      sword.x = variant.x;
-      sword.z = milestoneZ;
-      sword.targetY = this.swordTargetY + variant.yOffset;
-      sword.startRiseY = sword.targetY - 110.0;
-      sword.y = sword.startRiseY;
-      sword.active = true;
-      sword.halfWidthX = variant.halfWidthX;
-      sword.halfDepthZ = variant.halfDepthZ;
-      sword.hasStruckLightning = false;
+    const isFallingFromSky = (distanceTraveled >= 4000);
+    const isTripleWave = (distanceTraveled >= 10000);
 
-      sword.mesh.rotation.set(variant.rotX, variant.rotY, variant.rotZ);
-      sword.group.position.set(sword.x, sword.y, sword.z);
-      sword.group.visible = true;
+    // Deactivate all pool swords first
+    for (const s of this.swords) {
+      s.active = false;
+      s.group.visible = false;
+      s.group.position.set(0, -9999, 0);
+    }
+
+    if (isTripleWave) {
+      // 3 Swords wave with staggered timing and non-aligned positions (Left, Right, Center)
+      const patternIdx = milestoneIdx % 3;
+      let swordConfigs = [];
+
+      if (patternIdx === 0) {
+        // Pattern 0: Left -> Right -> Center
+        swordConfigs = [
+          { x: -5.2, zOffset: -25, startFallDist: 800, landDist: 250, rotZOffset: -0.15 },
+          { x:  5.2, zOffset: 0,   startFallDist: 720, landDist: 170, rotZOffset:  0.15 },
+          { x:  0.0, zOffset: 25,  startFallDist: 640, landDist:  90, rotZOffset:  0.0  }
+        ];
+      } else if (patternIdx === 1) {
+        // Pattern 1: Center -> Left -> Right
+        swordConfigs = [
+          { x:  0.0, zOffset: -25, startFallDist: 800, landDist: 250, rotZOffset:  0.0  },
+          { x: -5.5, zOffset: 0,   startFallDist: 720, landDist: 170, rotZOffset: -0.18 },
+          { x:  5.5, zOffset: 25,  startFallDist: 640, landDist:  90, rotZOffset:  0.18 }
+        ];
+      } else {
+        // Pattern 2: Right -> Center -> Left
+        swordConfigs = [
+          { x:  5.0, zOffset: -25, startFallDist: 800, landDist: 250, rotZOffset:  0.15 },
+          { x:  0.0, zOffset: 0,   startFallDist: 720, landDist: 170, rotZOffset:  0.0  },
+          { x: -5.0, zOffset: 25,  startFallDist: 640, landDist:  90, rotZOffset: -0.15 }
+        ];
+      }
+
+      for (let i = 0; i < 3; i++) {
+        const sword = this.swords[i];
+        if (!sword) continue;
+        const cfg = swordConfigs[i];
+
+        sword.x = cfg.x;
+        sword.z = milestoneZ + cfg.zOffset;
+        sword.targetY = this.swordTargetY + variant.yOffset;
+        sword.startRiseY = sword.targetY + 250.0;
+        sword.isFallingFromSky = true;
+        sword.startFallDist = cfg.startFallDist;
+        sword.landDist = cfg.landDist;
+
+        sword.y = sword.startRiseY;
+        sword.active = true;
+        sword.halfWidthX = variant.halfWidthX;
+        sword.halfDepthZ = variant.halfDepthZ;
+        sword.hasStruckLightning = false;
+
+        sword.mesh.rotation.set(
+          variant.rotX,
+          variant.rotY,
+          variant.rotZ + cfg.rotZOffset
+        );
+        sword.group.position.set(sword.x, sword.y, sword.z);
+        sword.group.visible = true;
+      }
+    } else {
+      // Single Sword (underwater or sky)
+      const sword = this.swords[0];
+      if (sword) {
+        sword.x = variant.x;
+        sword.z = milestoneZ;
+        sword.targetY = this.swordTargetY + variant.yOffset;
+        sword.startFallDist = 800;
+        sword.landDist = 250;
+
+        if (isFallingFromSky) {
+          sword.startRiseY = sword.targetY + 250.0;
+        } else {
+          sword.startRiseY = sword.targetY - 110.0;
+        }
+        sword.isFallingFromSky = isFallingFromSky;
+
+        sword.y = sword.startRiseY;
+        sword.active = true;
+        sword.halfWidthX = variant.halfWidthX;
+        sword.halfDepthZ = variant.halfDepthZ;
+        sword.hasStruckLightning = false;
+
+        sword.mesh.rotation.set(variant.rotX, variant.rotY, variant.rotZ);
+        sword.group.position.set(sword.x, sword.y, sword.z);
+        sword.group.visible = true;
+      }
     }
   }
 
@@ -398,32 +474,49 @@ export class SwordRainManager {
       }
     }
 
-    // Update active titan sword smooth rise and fade-in (Medieval or Jade)
+    // Update active titan sword smooth rise/fall and fade-in
     if (this.isMilestoneActive) {
-      const activeObj = this.swords[0];
+      for (const activeObj of this.swords) {
+        if (!activeObj || !activeObj.active) continue;
 
-      if (activeObj && activeObj.active) {
-        // Smooth underwater emergence: starts at 800m ahead, completes fully at 250m ahead
-        const riseProgress = THREE.MathUtils.clamp((800 - distToMilestone) / 550, 0, 1);
+        const distToSword = playerZ - activeObj.z;
+        const startFall = activeObj.startFallDist || 800;
+        const landDist = activeObj.landDist || 250;
+        const distSpan = Math.max(1, startFall - landDist);
+
+        const riseProgress = THREE.MathUtils.clamp((startFall - distToSword) / distSpan, 0, 1);
         const smoothProgress = THREE.MathUtils.smoothstep(riseProgress, 0, 1);
 
         activeObj.y = THREE.MathUtils.lerp(activeObj.startRiseY, activeObj.targetY, smoothProgress);
         activeObj.group.position.y = activeObj.y;
 
-        // When titan sword reaches 100% emergence (smoothProgress >= 1.0), trigger dramatic lightning strike & white screen blink!
+        // When titan sword reaches 100% emergence/landing (smoothProgress >= 1.0), trigger dramatic lightning strike & white screen blink!
         if (!activeObj.hasStruckLightning && smoothProgress >= 1.0) {
           activeObj.hasStruckLightning = true;
           this.triggerSwordLightningStrike(activeObj);
+
+          // Extra splash & ripple burst on impact
+          for (let s = 0; s < 3; s++) {
+            this.spawnWaterSplash(activeObj.x, activeObj.z);
+          }
+          this.spawnRipple(activeObj.x, activeObj.z);
         }
 
         // Boost dramatic localized lake water wave swell around titan sword emergence
         if (this.game && this.game.waterSystem) {
-          const waveFactor = Math.sin(smoothProgress * Math.PI);
+          let waveFactor = Math.sin(smoothProgress * Math.PI);
+          if (activeObj.isFallingFromSky) {
+            waveFactor = smoothProgress > 0.6 ? Math.sin(((smoothProgress - 0.6) / 0.4) * Math.PI) : 0;
+          }
           this.game.waterSystem.setSwordWave(activeObj.x, activeObj.z, waveFactor * 0.85);
         }
 
         // Spawn dramatic water splash spray on left/right/front/back sides of titan sword as it breaks water surface
-        if (smoothProgress < 0.98 && distToMilestone <= 800 && distToMilestone >= -50) {
+        const shouldSplash = activeObj.isFallingFromSky
+          ? (smoothProgress >= 0.70 && distToSword <= startFall && distToSword >= -50)
+          : (smoothProgress < 0.98 && distToSword <= startFall && distToSword >= -50);
+
+        if (shouldSplash) {
           this.spawnWaterSplash(activeObj.x, activeObj.z);
           // Spawn ripples frequently
           if (Math.random() < 0.35) {
@@ -453,26 +546,27 @@ export class SwordRainManager {
   checkSwordCollision(boatWorldPos, hullRadius = 1.4) {
     if (!this.isLoaded || !this.isMilestoneActive) return { collided: false, bounceDir: 0, penetration: 0 };
 
-    const activeObj = this.swords[0];
-    if (activeObj && activeObj.active) {
-      const minX = activeObj.x - activeObj.halfWidthX - hullRadius;
-      const maxX = activeObj.x + activeObj.halfWidthX + hullRadius;
-      const minZ = activeObj.z - activeObj.halfDepthZ - hullRadius;
-      const maxZ = activeObj.z + activeObj.halfDepthZ + hullRadius;
+    for (const activeObj of this.swords) {
+      if (activeObj && activeObj.active) {
+        const minX = activeObj.x - activeObj.halfWidthX - hullRadius;
+        const maxX = activeObj.x + activeObj.halfWidthX + hullRadius;
+        const minZ = activeObj.z - activeObj.halfDepthZ - hullRadius;
+        const maxZ = activeObj.z + activeObj.halfDepthZ + hullRadius;
 
-      if (boatWorldPos.x > minX && boatWorldPos.x < maxX &&
-          boatWorldPos.z > minZ && boatWorldPos.z < maxZ) {
-        
-        const penRight = maxX - boatWorldPos.x;
-        const penLeft = boatWorldPos.x - minX;
-        const penZ = Math.min(maxZ - boatWorldPos.z, boatWorldPos.z - minZ);
+        if (boatWorldPos.x > minX && boatWorldPos.x < maxX &&
+            boatWorldPos.z > minZ && boatWorldPos.z < maxZ) {
+          
+          const penRight = maxX - boatWorldPos.x;
+          const penLeft = boatWorldPos.x - minX;
+          const penZ = Math.min(maxZ - boatWorldPos.z, boatWorldPos.z - minZ);
 
-        if (Math.min(penLeft, penRight) < penZ) {
-          const bounceDir = penRight < penLeft ? 1 : -1;
-          return { collided: true, bounceDir: bounceDir, penetration: Math.min(penLeft, penRight) };
-        } else {
-          const bounceDir = boatWorldPos.x >= activeObj.x ? 1 : -1;
-          return { collided: true, bounceDir: bounceDir, penetration: penZ };
+          if (Math.min(penLeft, penRight) < penZ) {
+            const bounceDir = penRight < penLeft ? 1 : -1;
+            return { collided: true, bounceDir: bounceDir, penetration: Math.min(penLeft, penRight) };
+          } else {
+            const bounceDir = boatWorldPos.x >= activeObj.x ? 1 : -1;
+            return { collided: true, bounceDir: bounceDir, penetration: penZ };
+          }
         }
       }
     }
