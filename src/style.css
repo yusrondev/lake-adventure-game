@@ -353,6 +353,19 @@ body.lightning-damage-flash::after {
   animation: flash-fade 0.45s ease-out forwards;
 }
 
+body.sword-lightning-flash::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.95);
+  pointer-events: none;
+  z-index: 99999;
+  animation: flash-fade 0.45s ease-out forwards;
+}
+
 @keyframes flash-fade {
   0% { opacity: 1; }
   100% { opacity: 0; }
@@ -458,12 +471,12 @@ body.lightning-damage-flash::after {
   position: fixed;
   width: 110px;
   height: 110px;
-  background: rgba(13, 25, 48, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 2px solid rgba(0, 242, 254, 0.6);
+  background: rgba(13, 25, 48, 0.20);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1.5px solid rgba(0, 242, 254, 0.30);
   border-radius: 50%;
-  box-shadow: 0 0 24px rgba(0, 242, 254, 0.4), inset 0 0 15px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.15), inset 0 0 10px rgba(0, 0, 0, 0.3);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -475,7 +488,7 @@ body.lightning-damage-flash::after {
 }
 
 .joystick-base.active {
-  opacity: 1;
+  opacity: 0.38;
   transform: translate(-50%, -50%) scale(1.0);
 }
 
@@ -483,10 +496,10 @@ body.lightning-damage-flash::after {
   position: absolute;
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #00f2fe, #4facfe);
-  border: 2px solid #ffffff;
+  background: rgba(0, 242, 254, 0.30);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
   border-radius: 50%;
-  box-shadow: 0 0 16px var(--primary-glow);
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.25);
   transform: translate(0px, 0px);
   pointer-events: none;
 }
@@ -1104,4 +1117,30 @@ kbd {
   .boat-preview-wrapper {
     height: 120px;
   }
+}
+
+.unstuck-toast {
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(15, 23, 42, 0.92);
+  color: #38bdf8;
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+  padding: 10px 22px;
+  border-radius: 20px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.5px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  z-index: 10000;
+}
+.unstuck-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }

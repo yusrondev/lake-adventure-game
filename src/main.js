@@ -17,6 +17,8 @@ class InfiniteLakeGame {
   constructor() {
     this.container = document.getElementById('game-container');
     
+    window.gameInstance = this;
+
     // UI Elements
     this.timeEl = document.getElementById('time-val');
     this.weatherEl = document.getElementById('weather-val');
@@ -196,8 +198,10 @@ class InfiniteLakeGame {
         if (this.toriiGateManager && assets.has('toriiGate')) {
           this.toriiGateManager.initModel(assets.get('toriiGate'));
         }
-        if (this.swordRainManager && assets.has('medievalSword')) {
-          this.swordRainManager.initModel(assets.get('medievalSword'));
+        if (this.swordRainManager) {
+          if (assets.has('medievalSword')) {
+            this.swordRainManager.initModel(assets.get('medievalSword'));
+          }
         }
 
         // Pre-warm GPU WebGL Shaders and Texture Buffers (Zero runtime hitching)
@@ -774,6 +778,7 @@ class InfiniteLakeGame {
     this.physics.health = 100;
     this.distanceTraveled = 0;
     if (this.swordRainManager) this.swordRainManager.reset();
+    if (this.weatherManager) this.weatherManager.reset();
     this.updateHpUI();
 
     if (this.bgmAudio) {
@@ -840,6 +845,22 @@ class InfiniteLakeGame {
         el.parentNode.removeChild(el);
       }
     }, 950);
+  }
+
+  showNotification(message) {
+    let toast = document.getElementById('game-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'game-toast';
+      toast.className = 'unstuck-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
   }
 
   triggerDamageFeedback(damageAmount = 2, worldPos = null) {

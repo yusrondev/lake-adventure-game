@@ -23,9 +23,11 @@ export class WeatherManager {
     // Manual debug override flag
     this.manualStormActive = false;
 
-    // Single Boat Strike per storm event state
-    this.hasStruckBoatThisStorm = false;
-    this.initialBoatStrikeTimer = 2.5; // Trigger boat lightning 2.5s after rain begins
+    // Scaling Boat Lightning Strikes per storm event state (+1 strike on each subsequent storm)
+    this.stormCount = 1;
+    this.boatStrikesThisStormCount = 0;
+    this.maxBoatStrikesThisStorm = 1;
+    this.nextBoatStrikeTimer = 2.5; // First strike timer after storm begins
     this.nextDistantLightningTimer = 1.0; // Frequent distant lightning interval
 
     // Pool of active lightning bolts for multiple simultaneous visible strikes
@@ -38,6 +40,15 @@ export class WeatherManager {
     this.initWaterRipples();
     this.initLightningLight();
     this.initAudioSynthesizer();
+  }
+
+  reset() {
+    this.currentDayIndex = 0;
+    this.stormCount = 1;
+    this.boatStrikesThisStormCount = 0;
+    this.maxBoatStrikesThisStorm = 1;
+    this.nextBoatStrikeTimer = 2.5;
+    this.manualStormActive = false;
   }
 
   generateRandomRainHour() {
@@ -274,6 +285,60 @@ export class WeatherManager {
     }
   }
 
+  triggerTitanSwordLightning(targetX, targetY, targetZ) {
+    // 1. Create double dramatic 3D lightning bolts hitting the sword from sky (Y = 135)
+    for (let b = 0; b < 2; b++) {
+      const offsetX = (b === 0) ? 0 : (Math.random() - 0.5) * 6.0;
+      const offsetZ = (b === 0) ? 0 : (Math.random() - 0.5) * 6.0;
+      const startPos = new THREE.Vector3(
+        targetX + (Math.random() - 0.5) * 22.0,
+        135.0 + Math.random() * 25.0,
+        targetZ + (Math.random() - 0.5) * 22.0
+      );
+      const endPos = new THREE.Vector3(targetX + offsetX, Math.max(4.0, targetY + 20.0), targetZ + offsetZ);
+
+      const boltGeo = this.createLightningBoltGeometry(startPos, endPos);
+      const boltMat = new THREE.LineBasicMaterial({
+        color: (b === 0) ? 0xffffff : 0xbae6fd,
+        linewidth: 4,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending
+      });
+
+      const boltMesh = new THREE.Line(boltGeo, boltMat);
+      boltMesh.renderOrder = 1002;
+      this.scene.add(boltMesh);
+
+      this.activeLightningBolts.push({
+        mesh: boltMesh,
+        timer: 0.28 + Math.random() * 0.10,
+        maxTimer: 0.35,
+        isBoatHit: false
+      });
+    }
+
+    // 2. High intensity lighting flash
+    this.lightningFlashTimer = 0.38;
+    this.lightningFlashIntensity = 5.0;
+    this.lightningLight.intensity = Math.max(this.lightningLight.intensity, 5.0);
+    this.lightningPointLight.position.set(targetX, Math.max(10.0, targetY + 15.0), targetZ);
+    this.lightningPointLight.intensity = 35.0;
+
+    // 3. Screen camera shake & white screen blink/flash
+    if (this.game) {
+      this.game.screenShake = 0.95;
+    }
+
+    document.body.classList.add('sword-lightning-flash');
+    setTimeout(() => {
+      document.body.classList.remove('sword-lightning-flash');
+    }, 450);
+
+    // 4. Play synthesized thunder sound effect
+    this.playThunderSound(true);
+  }
+
   applyBoatLightningDamage() {
     const physics = this.game.physics;
     if (!physics) return;
@@ -422,12 +487,14 @@ export class WeatherManager {
     // Calculate total days passed based on elapsed time
     const currentDay = Math.floor(this.dayNightCycle.elapsedTime / (24.0 / this.dayNightCycle.timeSpeed));
 
-    // Schedule 1 storm each new in-game day
+    // Schedule 1 storm each new in-game day (increments strike count by +1 each subsequent storm)
     if (currentDay !== this.currentDayIndex) {
       this.currentDayIndex = currentDay;
       this.scheduledRainHour = this.generateRandomRainHour();
-      this.hasStruckBoatThisStorm = false;
-      this.initialBoatStrikeTimer = 2.5;
+      this.stormCount++;
+      this.maxBoatStrikesThisStorm = this.stormCount;
+      this.boatStrikesThisStormCount = 0;
+      this.nextBoatStrikeTimer = 2.5;
     }
 
     // Check daily weather schedule window
@@ -467,16 +534,12 @@ export class WeatherManager {
         targetRain = Math.max(0.0, 1.0 - clearingProgress);
         this.weatherState = 'CLEARING';
         statusText = '🌦️ Hujan Reda';
-        this.hasStruckBoatThisStorm = false; // Reset for next storm
-        this.initialBoatStrikeTimer = 2.5;
       } else {
         // Clear normal weather
         targetOvercast = 0.0;
         targetRain = 0.0;
         this.weatherState = 'CLEAR';
         statusText = '☀️ Cerah';
-        this.hasStruckBoatThisStorm = false;
-        this.initialBoatStrikeTimer = 2.5;
       }
     }
 
@@ -571,11 +634,14 @@ export class WeatherManager {
 
     // --- Update Lightning Strikes during Rain (Only active in heavy storm with overcast, NOT during drizzle) ---
     if (this.rainIntensity > 0.35 && this.overcastFactor > 0.25) {
-      // 1. Initial 1x boat strike when rain arrives
-      if (!this.hasStruckBoatThisStorm) {
-        this.initialBoatStrikeTimer -= delta;
-        if (this.initialBoatStrikeTimer <= 0) {
-          this.triggerLightningStrike(playerPos, true); // Strike boat exactly 1x!
+      // 1. Boat strikes: repeat until boatStrikesThisStormCount reaches maxBoatStrikesThisStorm (+1 strike for each subsequent storm!)
+      if (this.boatStrikesThisStormCount < this.maxBoatStrikesThisStorm) {
+        this.nextBoatStrikeTimer -= delta;
+        if (this.nextBoatStrikeTimer <= 0) {
+          this.triggerLightningStrike(playerPos, true); // Strike boat!
+          this.boatStrikesThisStormCount++;
+          // Interval between consecutive strikes in the same storm (4.5s to 8.5s)
+          this.nextBoatStrikeTimer = 4.5 + Math.random() * 4.0;
         }
       }
 
@@ -622,8 +688,10 @@ export class WeatherManager {
   toggleStormDebug() {
     this.manualStormActive = !this.manualStormActive;
     if (this.manualStormActive) {
-      this.hasStruckBoatThisStorm = false;
-      this.initialBoatStrikeTimer = 1.8;
+      this.stormCount++;
+      this.maxBoatStrikesThisStorm = this.stormCount;
+      this.boatStrikesThisStormCount = 0;
+      this.nextBoatStrikeTimer = 1.8;
     }
     return this.manualStormActive;
   }

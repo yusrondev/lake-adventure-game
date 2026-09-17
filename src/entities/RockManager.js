@@ -111,67 +111,94 @@ export class RockManager {
     // Deterministic random generator for this world seed and segment
     const rng = SeededRandom.forSegment(this.worldSeed, segmentIndex);
 
-    // 60% chance of 1 rock per 80m segment to guarantee clear open lanes and ample space
-    if (rng.random() > 0.60) return;
+    // Calculate distance traveled in kilometers
+    const distKm = Math.max(0, -zCenter) / 1000;
+
+    // Scale spawn probability smoothly with distance (55% at start -> 85% at 3km+)
+    const spawnProb = Math.min(0.85, 0.55 + distKm * 0.10);
+    if (rng.random() > spawnProb) return;
+
+    // Do not spawn rocks anywhere near Japanese Torii Gates (every 2000m)
+    const nearestGateZ = Math.round(zCenter / 2000) * 2000;
+    if (Math.abs(zCenter - nearestGateZ) < 150) return;
+
+    // Do not spawn rocks anywhere near Medieval Sword Rain zones (every 3500m)
+    const nearestSwordZ = Math.round(zCenter / 3500) * 3500;
+    if (Math.abs(zCenter - nearestSwordZ) < 150) return;
 
     const segmentRocks = [];
 
-    // Position Z within segment with margin
-    const offsetZ = (rng.random() - 0.5) * (segmentLength - 30);
-    const rockZ = zCenter + offsetZ;
+    // Determine how many rocks to spawn in this segment (1 rock base, up to 2 rocks at higher distance)
+    // Double rock probability scales from 0% at 0.5km up to 50% at 3km+
+    const doubleRockChance = Math.min(0.50, Math.max(0, (distKm - 0.5) * 0.20));
+    const rockCount = (distKm >= 0.8 && rng.random() < doubleRockChance) ? 2 : 1;
 
-    // Do not spawn rocks anywhere near the gateway zone of Japanese Torii Gates (every 2000m)
-    const nearestGateZ = Math.round(rockZ / 2000) * 2000;
-    if (Math.abs(rockZ - nearestGateZ) < 150) return;
-
-    // Do not spawn rocks anywhere near Medieval Sword Rain zones (every 3000m)
-    const nearestSwordZ = Math.round(rockZ / 3000) * 3000;
-    if (Math.abs(rockZ - nearestSwordZ) < 150) return;
-
-    // Distribute across left, center-left, center-right, and right lanes
     const laneChoices = [-10.5, -4.5, 4.5, 10.5];
-    const chosenLane = rng.choice(laneChoices);
-    const rockX = chosenLane + (rng.random() * 2.0 - 1.0);
+    const chosenLanes = [];
 
-    const rockMesh = this.createRockInstance();
-    if (!rockMesh) return;
+    for (let i = 0; i < rockCount; i++) {
+      // Position Z within segment with margin
+      const offsetZ = (rng.random() - 0.5) * (segmentLength - 30);
+      const rockZ = zCenter + offsetZ;
 
-    // Highly varied non-uniform sizes (Scale range 1.4x to 3.8x)
-    const scaleBase = 1.4 + rng.random() * 2.4;
-    const scaleX = scaleBase * (0.85 + rng.random() * 0.35);
-    const scaleY = scaleBase * (0.9 + rng.random() * 0.4);
-    const scaleZ = scaleBase * (0.85 + rng.random() * 0.35);
+      // Select lane choice ensuring navigability (always leave open passing channels)
+      let availableLanes = laneChoices.filter(l => !chosenLanes.includes(l));
+      if (chosenLanes.length > 0) {
+        // Ensure 2 rocks in the same segment have wide lateral spacing (>= 9m)
+        const firstLane = chosenLanes[0];
+        availableLanes = availableLanes.filter(l => Math.abs(l - firstLane) >= 9.0);
+      }
+      if (availableLanes.length === 0) {
+        availableLanes = laneChoices.filter(l => !chosenLanes.includes(l));
+      }
 
-    rockMesh.scale.set(scaleX, scaleY, scaleZ);
+      const chosenLane = rng.choice(availableLanes);
+      chosenLanes.push(chosenLane);
 
-    // Submerge rock base into lake bed so it looks grounded underwater (-1.0m to -1.8m)
-    const posY = -1.0 - (scaleY * 0.22);
-    rockMesh.position.set(rockX, posY, rockZ);
+      const rockX = chosenLane + (rng.random() * 2.0 - 1.0);
 
-    // Unique random 3D rotations for organic shape variation
-    rockMesh.rotation.set(
-      (rng.random() - 0.5) * 0.4,
-      rng.random() * Math.PI * 2,
-      (rng.random() - 0.5) * 0.4
-    );
+      const rockMesh = this.createRockInstance();
+      if (!rockMesh) continue;
 
-    this.scene.add(rockMesh);
-    rockMesh.updateMatrixWorld(true);
+      // Highly varied non-uniform sizes (Scale range 1.4x to 3.8x)
+      const scaleBase = 1.4 + rng.random() * 2.4;
+      const scaleX = scaleBase * (0.85 + rng.random() * 0.35);
+      const scaleY = scaleBase * (0.9 + rng.random() * 0.4);
+      const scaleZ = scaleBase * (0.85 + rng.random() * 0.35);
 
-    // Calculate true physical horizontal radius of this rock instance at water level
-    const radiusWaterX = (this.baseExtents.x * 0.5) * scaleX * 1.0;
-    const radiusWaterZ = (this.baseExtents.z * 0.5) * scaleZ * 1.0;
-    const effectiveWaterRadius = Math.max(radiusWaterX, radiusWaterZ);
+      rockMesh.scale.set(scaleX, scaleY, scaleZ);
 
-    segmentRocks.push({
-      mesh: rockMesh,
-      x: rockX,
-      z: rockZ,
-      effectiveWaterRadius: effectiveWaterRadius,
-      maxWorldRadius: effectiveWaterRadius + 4.5
-    });
+      // Submerge rock base into lake bed so it looks grounded underwater (-1.0m to -1.8m)
+      const posY = -1.0 - (scaleY * 0.22);
+      rockMesh.position.set(rockX, posY, rockZ);
 
-    this.activeSegmentRocks.set(segmentIndex, segmentRocks);
+      // Unique random 3D rotations for organic shape variation
+      rockMesh.rotation.set(
+        (rng.random() - 0.5) * 0.4,
+        rng.random() * Math.PI * 2,
+        (rng.random() - 0.5) * 0.4
+      );
+
+      this.scene.add(rockMesh);
+      rockMesh.updateMatrixWorld(true);
+
+      // Calculate true physical horizontal radius of this rock instance at water level
+      const radiusWaterX = (this.baseExtents.x * 0.5) * scaleX * 1.0;
+      const radiusWaterZ = (this.baseExtents.z * 0.5) * scaleZ * 1.0;
+      const effectiveWaterRadius = Math.max(radiusWaterX, radiusWaterZ);
+
+      segmentRocks.push({
+        mesh: rockMesh,
+        x: rockX,
+        z: rockZ,
+        effectiveWaterRadius: effectiveWaterRadius,
+        maxWorldRadius: effectiveWaterRadius + 4.5
+      });
+    }
+
+    if (segmentRocks.length > 0) {
+      this.activeSegmentRocks.set(segmentIndex, segmentRocks);
+    }
   }
 
   createRockInstance() {

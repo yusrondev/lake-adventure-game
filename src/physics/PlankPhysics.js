@@ -43,6 +43,7 @@ export class PlankPhysics {
     this.health = 100;
     this.invulnerableTimer = 0;
     this.collisionSlowTimer = 0;
+    this.stuckTimer = 0;
   }
 
   applyJoystickVector(normX, normY, delta) {
@@ -198,7 +199,37 @@ export class PlankPhysics {
 
     this.worldPosition.x = THREE.MathUtils.clamp(this.worldPosition.x, -this.safeChannelLimit, this.safeChannelLimit);
 
-    // 6. THREE.JS MESH UPDATES (Strictly 0 pitch, 0 heading yaw serong, ONLY left/right roll tilt)
+    // 6. AUTO-UNSTUCK SYSTEM (5 seconds stuck -> auto-respawn 22m forward in clear open water)
+    const isTryingToMove = (Math.abs(normZ) > 0.1 || Math.abs(normX) > 0.1 || Math.abs(this.speed) > 0.1);
+    const speedKmH = Math.abs(this.speed * 3.6);
+    const isNearBank = Math.abs(this.worldPosition.x) >= (this.safeChannelLimit - 1.2);
+    const isStuckCondition = isTryingToMove && (speedKmH < 3.5 || isNearBank || this.collisionSlowTimer > 0);
+
+    if (isStuckCondition) {
+      this.stuckTimer += delta;
+      if (this.stuckTimer >= 5.0) {
+        this.stuckTimer = 0;
+        
+        // Teleport boat 22 meters FORWARD along the channel into clear open water at center (X = 0)
+        this.worldPosition.x = 0.0;
+        this.worldPosition.z -= 22.0; // Advance forward past stuck obstacle
+        this.turnSpeed = 0.0;
+        this.speed = 12.0; // Give smooth forward cruising boost (~43 km/h)
+        this.invulnerableTimer = 2.5; // Invulnerable for 2.5s
+        this.collisionSlowTimer = 0;
+
+        // Immediately sync boat 3D mesh position
+        this.boat.mesh.position.copy(this.worldPosition);
+
+        if (window.gameInstance && window.gameInstance.showNotification) {
+          window.gameInstance.showNotification('⛵ Perahu dipindahkan ke jalur aman!');
+        }
+      }
+    } else {
+      this.stuckTimer = 0;
+    }
+
+    // 7. THREE.JS MESH UPDATES (Strictly 0 pitch, 0 heading yaw serong, ONLY left/right roll tilt)
     this.heading = 0;
     this.pitch = 0;
     this.boat.mesh.position.copy(this.worldPosition);
